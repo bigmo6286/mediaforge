@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config
 from .jobs import manager
-from .routes import generate, media
+from .routes import edit, generate, media
 
 app = FastAPI(title="MediaForge", version="0.1.0")
 
@@ -24,6 +24,7 @@ app.add_middleware(
 
 app.include_router(media.router, prefix="/api")
 app.include_router(generate.router, prefix="/api/generate")
+app.include_router(edit.router, prefix="/api/edit")
 
 # Serve uploads + outputs so the browser can preview/download results.
 app.mount("/files", StaticFiles(directory=str(config.DATA_DIR)), name="files")

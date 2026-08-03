@@ -26,6 +26,19 @@ from . import _hosted
 from ._hosted import ProviderError
 
 
+def _piper_bin() -> str:
+    """Locate the piper executable cross-platform (Linux/macOS/Windows).
+
+    Prefers the one in the running venv's Scripts/bin dir (next to the Python
+    that launched the server), then falls back to PATH.
+    """
+    import sys
+
+    exe = "piper.exe" if sys.platform == "win32" else "piper"
+    cand = Path(sys.executable).parent / exe
+    return str(cand) if cand.exists() else "piper"
+
+
 def _audio_data_uri(path: Path) -> str:
     ext = path.suffix.lower().lstrip(".") or "wav"
     mime = {"mp3": "mpeg", "wav": "wav", "m4a": "mp4", "ogg": "ogg"}.get(ext, "mpeg")
@@ -56,7 +69,7 @@ def synthesize_speech(text: str, params: dict, progress: JobProgress) -> Path:
         # piper reads text on stdin and writes a WAV to -f/--output_file.
         try:
             proc = subprocess.run(
-                ["piper", "-m", model, "-f", str(out)],
+                [_piper_bin(), "-m", model, "-f", str(out)],
                 input=text, text=True, capture_output=True,
             )
         except FileNotFoundError as exc:

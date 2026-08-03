@@ -99,6 +99,14 @@ textarea { resize: vertical; }
 .primary:disabled { opacity: .5; cursor: not-allowed; }
 .primary:not(:disabled):hover { filter: brightness(1.1); }
 
+.secondary {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.secondary:hover:not(:disabled) { border-color: var(--accent-2); color: var(--accent-2); }
+.secondary:disabled { opacity: .5; cursor: not-allowed; }
+
 .seg { display: inline-flex; background: var(--panel-2); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
 .seg-btn { background: transparent; border: none; color: var(--muted); padding: 8px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; }
 .seg-btn.active { background: var(--accent); color: #fff; }

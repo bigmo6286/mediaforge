@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getProviders } from "./api.js";
 import AvatarTab from "./tabs/AvatarTab.jsx";
 import GenerateTab from "./tabs/GenerateTab.jsx";
+import StyleTab from "./tabs/StyleTab.jsx";
 import VideoTab from "./tabs/VideoTab.jsx";
 import ImageTab from "./tabs/ImageTab.jsx";
 import Gallery from "./components/Gallery.jsx";
@@ -9,6 +10,7 @@ import Gallery from "./components/Gallery.jsx";
 const TABS = [
   { id: "avatar", label: "🎤 Talking Avatar" },
   { id: "generate", label: "✨ Motion (Wan)" },
+  { id: "style", label: "🎭 Face & Wardrobe" },
   { id: "video", label: "🎬 Video Edit" },
   { id: "image", label: "🖼️ Image Edit" },
 ];
@@ -78,6 +80,9 @@ export default function App() {
           )}
           {tab === "generate" && (
             <GenerateTab providers={providers} onResult={addResult} />
+          )}
+          {tab === "style" && (
+            <StyleTab providers={providers} onResult={addResult} />
           )}
           {tab === "video" && <VideoTab onResult={addResult} />}
           {tab === "image" && <ImageTab onResult={addResult} />}

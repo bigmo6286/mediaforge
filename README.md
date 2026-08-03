@@ -23,8 +23,12 @@ clean web UI.
 |-----|---------|---------|
 | 🎤 **Talking Avatar** | 1 photo + voice → lip-synced presenter (SadTalker/Hallo/Wan2.2-S2V). Voice from a typed **script** (TTS) or an uploaded recording. | GPU (hosted or local); TTS can run locally on CPU via Piper |
 | ✨ **Motion** | Text→Video / Image→Video with **LTX-Video** (free-GPU friendly) or **Wan**. A duration slider goes to 30s — clips longer than one model window are built by **auto-chaining** segments (last frame seeds the next) and trimmed to length. | GPU (hosted or local) |
+| 🎭 **Face & Wardrobe** | **Face swap** (change the face in a photo; InsightFace local or hosted) and **Dress change** (virtual try-on with IDM-VTON) | face swap: CPU/GPU · try-on: GPU (hosted) |
 | 🎬 **Video Edit** | Trim, crop, resize, speed, → GIF, convert, extract frames, extract audio | **CPU, local** |
 | 🖼️ **Image Edit** | Background removal, resize, format convert | **CPU, local** |
+
+The Talking Avatar tab also has a **▶ Preview voice** button — synthesize and
+hear the script (local Piper TTS) before rendering the full video.
 
 The heavy AI models (Wan, avatar) need a GPU. This machine has none, so they run
 on a **hosted GPU** (fal.ai or Replicate — pay-per-render, open-source models).
@@ -48,6 +52,21 @@ npm run dev                    # http://localhost:5173
 ```
 
 Or use the launcher: `./run.sh` (starts both).
+
+### Windows
+
+Works on Windows too (paths, the bundled ffmpeg, and Piper are all
+cross-platform). Use the PowerShell scripts instead of the shell ones:
+
+```powershell
+# from the project folder
+powershell -ExecutionPolicy Bypass -File run.ps1        # start backend + frontend
+powershell -ExecutionPolicy Bypass -File setup_gpu.ps1  # one-shot GPU setup
+```
+
+Manual equivalent: create the venv with `python -m venv .venv`, activate via
+`.\.venv\Scripts\Activate.ps1`, then the same `pip install` / `uvicorn` / `npm`
+commands as above. Requires Python 3.10+ and Node 18+.
 
 ## Enabling AI generation
 

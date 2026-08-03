@@ -118,6 +118,21 @@ REPLICATE_AVATAR_AUDIO_FIELD = os.environ.get("REPLICATE_AVATAR_AUDIO_FIELD", "d
 SADTALKER_DIR = os.environ.get("SADTALKER_DIR", "")
 SADTALKER_PYTHON = os.environ.get("SADTALKER_PYTHON", "python")
 
+# --- Face swap (change the face in a photo) --------------------------------
+# Local: InsightFace inswapper (CPU-capable). Hosted: fal / replicate.
+FACESWAP_PROVIDER = os.environ.get("FACESWAP_PROVIDER", _default_provider()).lower()
+FAL_FACESWAP_MODEL = os.environ.get("FAL_FACESWAP_MODEL", "fal-ai/face-swap")
+REPLICATE_FACESWAP_MODEL = os.environ.get(
+    "REPLICATE_FACESWAP_MODEL", "cdingram/face-swap")
+# Local inswapper .onnx (set INSWAPPER_MODEL to enable FACESWAP_PROVIDER=local).
+INSWAPPER_MODEL = os.environ.get("INSWAPPER_MODEL", "")
+
+# --- Dress / outfit change (virtual try-on) --------------------------------
+# Hosted diffusion try-on (IDM-VTON etc.); local needs a big GPU.
+TRYON_PROVIDER = os.environ.get("TRYON_PROVIDER", _default_provider()).lower()
+FAL_TRYON_MODEL = os.environ.get("FAL_TRYON_MODEL", "fal-ai/idm-vton")
+REPLICATE_TRYON_MODEL = os.environ.get("REPLICATE_TRYON_MODEL", "cuuupid/idm-vton")
+
 # --- Text-to-speech (script -> voice) --------------------------------------
 # Local: Piper (CPU, free). Voices are .onnx files under PIPER_VOICES_DIR.
 # Hosted fallback: Kokoro (open-source) via fal/replicate.
@@ -192,4 +207,9 @@ def provider_status() -> dict:
             "fal": FAL_TTS_MODEL,
             "replicate": REPLICATE_TTS_MODEL,
         },
+        "faceswap": {"provider": FACESWAP_PROVIDER,
+                     "local_ready": bool(INSWAPPER_MODEL),
+                     "fal": FAL_FACESWAP_MODEL, "replicate": REPLICATE_FACESWAP_MODEL},
+        "tryon": {"provider": TRYON_PROVIDER,
+                  "fal": FAL_TRYON_MODEL, "replicate": REPLICATE_TRYON_MODEL},
     }

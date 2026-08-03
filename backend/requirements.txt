@@ -16,6 +16,12 @@ piper-tts>=1.2
 # rembg>=2.0
 # onnxruntime>=1.17
 
+# Local face swap — optional (CPU-capable). Also set INSWAPPER_MODEL to the
+# inswapper_128.onnx path. Uncomment to enable FACESWAP_PROVIDER=local:
+# insightface>=0.7
+# onnxruntime>=1.17
+# opencv-python>=4.9
+
 # Local Wan on a CUDA GPU — optional, very heavy. Install only on a GPU box:
 # torch --index-url https://download.pytorch.org/whl/cu121
 # diffusers>=0.31

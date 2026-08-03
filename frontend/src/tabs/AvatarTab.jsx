@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { postForm, fileUrl } from "../api.js";
+import { postForm, fileUrl, pollJob } from "../api.js";
 import Uploader from "../components/Uploader.jsx";
 import ProgressBar from "../components/ProgressBar.jsx";
 import useJobRunner from "../components/useJobRunner.js";
@@ -47,6 +47,27 @@ export default function AvatarTab({ providers, onResult }) {
   useEffect(() => {
     if (!voice && voiceOptions.length) setVoice(voiceOptions[0][0]);
   }, [voiceOptions, voice]);
+
+  // --- Preview voice: synthesize the script and play it before rendering ---
+  const [preview, setPreview] = useState(null); // audio url
+  const [previewing, setPreviewing] = useState(false);
+  const [previewErr, setPreviewErr] = useState(null);
+
+  const previewVoice = async () => {
+    if (!script.trim()) return;
+    setPreviewing(true);
+    setPreviewErr(null);
+    setPreview(null);
+    try {
+      const { job_id } = await postForm("/api/generate/tts", { text: script, voice });
+      const job = await pollJob(job_id);
+      setPreview(fileUrl(job.result.output));
+    } catch (e) {
+      setPreviewErr(e.message);
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const submit = async () => {
     if (!portrait) return;
@@ -123,7 +144,17 @@ export default function AvatarTab({ providers, onResult }) {
                   ))}
                 </select>
               </div>
+              <div className="field" style={{ marginBottom: 0, flex: "0 0 auto" }}>
+                <label>&nbsp;</label>
+                <button className="secondary" onClick={previewVoice} disabled={previewing || !script.trim()}>
+                  {previewing ? "…" : "▶ Preview voice"}
+                </button>
+              </div>
             </div>
+            {preview && (
+              <audio controls autoPlay src={preview} style={{ width: "100%", marginTop: 10 }} />
+            )}
+            {previewErr && <div className="err">{previewErr}</div>}
           </>
         ) : (
           <>
