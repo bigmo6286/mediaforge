@@ -82,9 +82,22 @@ dev mode below.
 > start in seconds. If PowerShell blocks the script, the `-ExecutionPolicy Bypass`
 > in the command above already handles it — run the whole line as shown.
 
+### Double-click launcher (no typing)
+
+Don't want to type the command each time?
+
+- **Windows:** double-click **`MediaForge.bat`** in the project folder to start the
+  app. To put an icon on your Desktop, run this once:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File Create-Desktop-Shortcut.ps1
+  ```
+  Then just double-click the **MediaForge** icon on your Desktop any time.
+- **macOS:** double-click **`MediaForge.command`** (first time: right-click → Open
+  to get past Gatekeeper).
+
 ### Running it again (after the first time)
 
-You don't reinstall anything — just start it:
+You don't reinstall anything — just start it (or use the double-click launcher above):
 
 ```powershell
 cd mediaforge
