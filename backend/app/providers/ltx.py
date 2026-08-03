@@ -72,7 +72,12 @@ def _local(prompt: str, image_path: Optional[Path], params: dict,
 def text_to_video(prompt: str, params: dict, progress: JobProgress) -> dict:
     provider = config.MOTION_PROVIDER
     if provider == "fal":
-        payload = {"prompt": prompt, "num_frames": int(params.get("num_frames", 121))}
+        # v095 takes `prompt` (+ optional negative_prompt). Keep it minimal so
+        # the payload matches whatever LTX endpoint is configured.
+        payload = {"prompt": prompt}
+        neg = params.get("negative_prompt")
+        if neg:
+            payload["negative_prompt"] = neg
         return _finish(_hosted.fal_call(config.FAL_LTX_T2V_MODEL, payload, progress),
                        "fal", config.FAL_LTX_T2V_MODEL, progress)
     if provider == "replicate":
@@ -88,8 +93,7 @@ def image_to_video(prompt: str, image_path: Path, params: dict,
                    progress: JobProgress) -> dict:
     provider = config.MOTION_PROVIDER
     if provider == "fal":
-        payload = {"prompt": prompt, "image_url": _img_data_uri(image_path),
-                   "num_frames": int(params.get("num_frames", 121))}
+        payload = {"prompt": prompt, "image_url": _img_data_uri(image_path)}
         return _finish(_hosted.fal_call(config.FAL_LTX_I2V_MODEL, payload, progress),
                        "fal", config.FAL_LTX_I2V_MODEL, progress)
     if provider == "replicate":

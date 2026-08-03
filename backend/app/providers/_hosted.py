@@ -50,7 +50,13 @@ def fal_call(model: str, payload: dict, progress: JobProgress) -> dict:
     progress.update(0.05, "submitting to fal")
     with httpx.Client(timeout=60) as client:
         resp = client.post(base, headers=headers, json=payload)
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            # Surface fal's own message (e.g. "Exhausted balance", bad field).
+            try:
+                detail = resp.json().get("detail")
+            except Exception:  # noqa: BLE001
+                detail = resp.text[:200]
+            raise ProviderError(f"fal {resp.status_code}: {detail}")
         req = resp.json()
         status_url = req.get("status_url") or f"{base}/requests/{req['request_id']}/status"
         result_url = req.get("response_url") or f"{base}/requests/{req['request_id']}"
@@ -80,10 +86,31 @@ def replicate_call(model: str, inp: dict, progress: JobProgress) -> dict:
                "Content-Type": "application/json"}
     progress.update(0.05, "submitting to replicate")
     with httpx.Client(timeout=60) as client:
+        # The /models/{m}/predictions shortcut only works for "official" models.
+        # For community models it 404s, so resolve the latest version and post
+        # to /v1/predictions. Try the shortcut first, fall back on 404.
         resp = client.post(
             f"https://api.replicate.com/v1/models/{model}/predictions",
             headers=headers, json={"input": inp},
         )
+        if resp.status_code == 404:
+            meta = client.get(f"https://api.replicate.com/v1/models/{model}",
+                              headers=headers)
+            meta.raise_for_status()
+            version = (meta.json().get("latest_version") or {}).get("id")
+            if not version:
+                raise ProviderError(f"replicate model {model} has no runnable version")
+            resp = client.post("https://api.replicate.com/v1/predictions",
+                               headers=headers, json={"version": version, "input": inp})
+        if resp.status_code == 402:
+            raise ProviderError(
+                "Replicate needs a payment method for this model. Add one at "
+                "replicate.com/account/billing, or use fal / a local GPU.")
+        if resp.status_code == 429:
+            raise ProviderError(
+                "Replicate rate-limited this request (no payment method on the "
+                "account). Add billing at replicate.com/account/billing to run "
+                "at full speed, or use a local GPU.")
         resp.raise_for_status()
         pred = resp.json()
         get_url = pred["urls"]["get"]

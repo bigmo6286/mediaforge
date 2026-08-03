@@ -93,8 +93,10 @@ MOTION_MODEL = os.environ.get("MOTION_MODEL", "ltx").lower()
 MOTION_PROVIDER = os.environ.get("MOTION_PROVIDER", WAN_PROVIDER).lower()
 
 # LTX-Video (Lightricks, open-source, Apache-2.0) — efficient, T4-friendly.
-FAL_LTX_T2V_MODEL = os.environ.get("FAL_LTX_T2V_MODEL", "fal-ai/ltx-video")
-FAL_LTX_I2V_MODEL = os.environ.get("FAL_LTX_I2V_MODEL", "fal-ai/ltx-video/image-to-video")
+# fal endpoints are versioned; the bare "fal-ai/ltx-video" is a namespace (403).
+FAL_LTX_T2V_MODEL = os.environ.get("FAL_LTX_T2V_MODEL", "fal-ai/ltx-video-v095")
+FAL_LTX_I2V_MODEL = os.environ.get(
+    "FAL_LTX_I2V_MODEL", "fal-ai/ltx-video-v095/image-to-video")
 REPLICATE_LTX_MODEL = os.environ.get("REPLICATE_LTX_MODEL", "lightricks/ltx-video")
 LTX_LOCAL_MODEL = os.environ.get("LTX_LOCAL_MODEL", "Lightricks/LTX-Video")
 
