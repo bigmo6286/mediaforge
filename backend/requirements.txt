@@ -1,0 +1,23 @@
+# Core API — required
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+httpx>=0.27
+imageio-ffmpeg>=0.5.1      # bundles an ffmpeg binary (no sudo needed)
+
+# Local image editing — optional but light
+Pillow>=10.0
+
+# Local text-to-speech (avatar voice, CPU, free). After installing, fetch a voice:
+#   python -m piper.download_voices en_US-amy-medium --data-dir voices
+piper-tts>=1.2
+
+# Background removal — optional, heavier (ONNX). Uncomment to enable:
+# rembg>=2.0
+# onnxruntime>=1.17
+
+# Local Wan on a CUDA GPU — optional, very heavy. Install only on a GPU box:
+# torch --index-url https://download.pytorch.org/whl/cu121
+# diffusers>=0.31
+# transformers>=4.44
+# accelerate>=0.30

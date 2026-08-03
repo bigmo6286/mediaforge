@@ -1,0 +1,20 @@
+# GPU extras — install these ON A MACHINE WITH A CUDA GPU, on top of
+# requirements.txt, to run Wan / LTX-Video locally (no hosted API, no keys).
+#
+#   pip install -r requirements.txt
+#   pip install -r requirements-gpu.txt
+#
+# Torch: install the build that matches your CUDA. The line below targets
+# CUDA 12.1 — change cu121 to your version, or see https://pytorch.org.
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch>=2.3
+torchvision>=0.18
+
+diffusers>=0.31          # WanPipeline, LTXPipeline, LTXImageToVideoPipeline
+transformers>=4.44
+accelerate>=0.30
+sentencepiece>=0.2       # text encoders (umT5 etc.)
+imageio[ffmpeg]>=2.34    # export_to_video
+
+# Talking avatar (local) is run from a SadTalker checkout, not pip — see README:
+#   git clone https://github.com/OpenTalker/SadTalker && set SADTALKER_DIR
