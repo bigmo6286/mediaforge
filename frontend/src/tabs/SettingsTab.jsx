@@ -160,6 +160,26 @@ export default function SettingsTab({ onSaved }) {
         </p>
       </div>
 
+      <div className="settings-card" style={{ marginTop: 16 }}>
+        <div className="settings-row">
+          <span>Saved files</span>
+          <b>Results panel → ⬇ download</b>
+        </div>
+        <p className="hint" style={{ marginTop: 8 }}>
+          Every render is downloadable from the <b>Results</b> panel on the right.
+          Files are also written to this folder on the server:
+        </p>
+        <code style={{ display: "block", wordBreak: "break-all", padding: "8px 10px",
+                       background: "rgba(255,255,255,.06)", borderRadius: 6, fontSize: 12 }}>
+          {settings.output_dir || "backend/data/outputs"}
+        </code>
+        <p className="hint">
+          On <b>Colab</b> that folder lives inside the temporary session (gone when it
+          ends) — use the ⬇ download buttons to save renders to your computer, or run
+          the notebook's "Save to Google Drive" cell to keep them.
+        </p>
+      </div>
+
       <p className="hint" style={{ marginTop: 16 }}>
         Local voice (Piper) and all editing already work with no key.
       </p>

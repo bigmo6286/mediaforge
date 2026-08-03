@@ -307,6 +307,7 @@ def current_settings() -> dict:
         "vram_gb": round(VRAM_GB, 1),
         "gpu_ok_for_heavy": GPU_OK_FOR_HEAVY,
         "provider": WAN_PROVIDER,
+        "output_dir": str(OUTPUT_DIR),
         "fields": SECRET_FIELDS,
         "keys": {
             "FAL_KEY": {"set": bool(FAL_KEY), "masked": _mask(FAL_KEY)},

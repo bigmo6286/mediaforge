@@ -16,7 +16,11 @@ $cuda = if ($env:TORCH_CUDA) { $env:TORCH_CUDA } else { "cu124" }
 $COMPAT = @("3.12","3.11","3.13")
 function Find-CompatVer {
     if (-not (Get-Command py -ErrorAction SilentlyContinue)) { return $null }
-    foreach ($v in $COMPAT) { & py "-$v" --version 2>$null; if ($LASTEXITCODE -eq 0) { return $v } }
+    foreach ($v in $COMPAT) {
+        # Discard the probe's stdout/stderr so ONLY $v is returned by the function.
+        $null = & py "-$v" --version 2>&1
+        if ($LASTEXITCODE -eq 0) { return $v }
+    }
     return $null
 }
 
@@ -50,9 +54,13 @@ if (Test-Path ".venv\Scripts\python.exe") {
     }
 }
 
-Write-Host "==> Python venv + base deps" -ForegroundColor Cyan
+Write-Host "==> Python venv + base deps (Python $pyv)" -ForegroundColor Cyan
 if (-not (Test-Path ".venv")) { & py "-$pyv" -m venv .venv }
 $py = ".venv\Scripts\python.exe"
+if (-not (Test-Path $py)) {
+    Write-Host "ERROR: venv was not created at $py. Is Python $pyv healthy? Try: py -$pyv -m venv .venv" -ForegroundColor Red
+    Read-Host "Press Enter to close"; exit 1
+}
 & $py -m pip install --upgrade pip
 & $py -m pip install -r requirements.txt
 

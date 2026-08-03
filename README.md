@@ -218,6 +218,18 @@ Notes:
 - Free Colab sessions time out after a while / the GPU can be busy at peak times;
   just rerun the cells for a fresh session.
 
+## Where your files are saved
+
+- **Easiest:** every render has a **⬇ download button** in the Results panel —
+  it saves straight to your computer.
+- **On disk (local run):** `data/outputs/` in the project folder — e.g.
+  `mediaforge/data/outputs/`. Uploads go to `data/uploads/`. The exact path is
+  shown in the **⚙ Settings** tab.
+- **On Colab:** that folder lives inside the temporary session and is deleted
+  when the session ends — use the download buttons, or run the notebook's
+  **"Save to Google Drive"** cell to keep renders in `MyDrive/MediaForge/outputs`.
+- Change the location by setting `MEDIAFORGE_DATA=/path/you/want` before starting.
+
 ## Notes
 - These are **batch renderers** — great for pre-recorded UGC/tutorial/presenter
   clips, not live real-time video calls.
