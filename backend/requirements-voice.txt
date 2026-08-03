@@ -1,0 +1,7 @@
+# Local text-to-speech for the avatar voice (Piper, CPU, free).
+# Installed best-effort by run.sh / run.ps1 — if it fails (e.g. a Windows build
+# issue), the app still runs and the avatar falls back to hosted TTS.
+#
+# After it installs, fetch a voice or two:
+#   python -m piper.download_voices en_US-amy-medium en_US-ryan-high --data-dir voices
+piper-tts>=1.2

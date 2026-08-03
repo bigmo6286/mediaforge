@@ -20,9 +20,13 @@ else
   echo "   MediaForge will use hosted providers (add a key) or CPU editing/TTS."
 fi
 
-echo "==> Local voices for the avatar (Piper, CPU)"
-./.venv/bin/python -m piper.download_voices \
-  en_US-amy-medium en_US-ryan-high en_GB-alba-medium --data-dir voices || true
+echo "==> Local voices for the avatar (Piper, CPU) — optional"
+if ./.venv/bin/pip install -r requirements-voice.txt; then
+  ./.venv/bin/python -m piper.download_voices \
+    en_US-amy-medium en_US-ryan-high en_GB-alba-medium --data-dir voices || true
+else
+  echo "   (Piper unavailable here — avatar will use hosted TTS.)"
+fi
 
 echo ""
 echo "Done. MediaForge auto-detects the GPU on startup:"

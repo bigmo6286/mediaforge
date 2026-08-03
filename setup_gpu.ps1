@@ -19,9 +19,14 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
     Write-Host "   MediaForge will use hosted providers (add a key) or CPU editing/TTS."
 }
 
-Write-Host "==> Local voices for the avatar (Piper, CPU)"
-& ".venv\Scripts\python.exe" -m piper.download_voices `
-    en_US-amy-medium en_US-ryan-high en_GB-alba-medium --data-dir voices
+Write-Host "==> Local voices for the avatar (Piper, CPU) - optional"
+& ".venv\Scripts\pip.exe" install -r requirements-voice.txt
+if ($LASTEXITCODE -eq 0) {
+    & ".venv\Scripts\python.exe" -m piper.download_voices `
+        en_US-amy-medium en_US-ryan-high en_GB-alba-medium --data-dir voices
+} else {
+    Write-Host "   (Piper unavailable here - avatar will use hosted TTS.)" -ForegroundColor Yellow
+}
 
 Write-Host ""
 Write-Host "Done. MediaForge auto-detects the GPU on startup."

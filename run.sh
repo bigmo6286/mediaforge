@@ -26,6 +26,15 @@ echo "    installing Python packages (progress shown below)..."
 ./.venv/bin/pip install -r requirements.txt   # no -q: shows progress
 [ -f .env ] || cp .env.example .env
 
+# Optional local voice (Piper) — best effort, never blocks the app.
+echo "    installing local voice (Piper, optional)..."
+if ./.venv/bin/pip install -r requirements-voice.txt; then
+  ls voices/*.onnx >/dev/null 2>&1 || \
+    ./.venv/bin/python -m piper.download_voices en_US-amy-medium en_US-ryan-high --data-dir voices || true
+else
+  echo "    (Piper voice unavailable on this system — avatar will use hosted TTS.)"
+fi
+
 # --- 4/4 start ---
 step 4 "Starting MediaForge..."
 echo ""

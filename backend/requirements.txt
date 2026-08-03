@@ -8,9 +8,10 @@ imageio-ffmpeg>=0.5.1      # bundles an ffmpeg binary (no sudo needed)
 # Local image editing — optional but light
 Pillow>=10.0
 
-# Local text-to-speech (avatar voice, CPU, free). After installing, fetch a voice:
-#   python -m piper.download_voices en_US-amy-medium --data-dir voices
-piper-tts>=1.2
+# NOTE: local text-to-speech (Piper) is installed SEPARATELY as a best-effort
+# step by run.sh / run.ps1 (see requirements-voice.txt). It's kept out of the
+# core list because its phonemizer wheel can fail to build on some Windows
+# setups, and a voice add-on must never block the app from installing.
 
 # Background removal — optional, heavier (ONNX). Uncomment to enable:
 # rembg>=2.0
