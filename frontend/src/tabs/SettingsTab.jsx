@@ -48,12 +48,29 @@ export default function SettingsTab({ onSaved }) {
       <div className="settings-card">
         <div className="settings-row">
           <span>This machine</span>
-          <b>{settings.has_gpu ? "⚡ GPU — models can run locally" : "🖥 CPU only"}</b>
+          <b>
+            {settings.has_gpu
+              ? `⚡ ${settings.gpu_name || "GPU"} · ${settings.vram_gb} GB`
+              : "🖥 CPU only"}
+          </b>
         </div>
-        {settings.has_gpu && (
+        {settings.has_gpu && settings.gpu_ok_for_heavy && (
           <p className="hint" style={{ marginTop: 0 }}>
-            A GPU is present, so models default to <b>local</b> (free, no keys). You
-            can still add a key to offload to a hosted GPU.
+            Enough VRAM to run everything locally (free, no keys). You can still add
+            a key to offload to a hosted GPU.
+          </p>
+        )}
+        {settings.has_gpu && !settings.gpu_ok_for_heavy && (
+          <p className="hint" style={{ marginTop: 0 }}>
+            Your GPU runs <b>face swap &amp; restore</b> locally, but it's too small
+            for local <b>video/avatar generation</b> — those use a hosted provider
+            or the free Colab GPU. Add a key below, or see <code>colab/</code>.
+          </p>
+        )}
+        {!settings.has_gpu && (
+          <p className="hint" style={{ marginTop: 0 }}>
+            No GPU detected — generation uses a hosted provider (add a key below) or
+            the free Colab GPU. Local voice and editing work with no key.
           </p>
         )}
       </div>

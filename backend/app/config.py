@@ -52,15 +52,40 @@ def detect_device() -> str:
     return device
 
 
+def detect_gpu() -> tuple[str, float]:
+    """Return (gpu_name, total_vram_gb) for device 0, or ('', 0.0)."""
+    if detect_device() != "cuda":
+        return "", 0.0
+    try:
+        import torch  # noqa: PLC0415
+
+        p = torch.cuda.get_device_properties(0)
+        return p.name, p.total_memory / (1024 ** 3)
+    except Exception:  # noqa: BLE001
+        return "", 0.0
+
+
 DEVICE = detect_device()
 HAS_GPU = DEVICE == "cuda"
+GPU_NAME, VRAM_GB = detect_gpu()
+
+# Heavy generators (Wan/LTX motion, talking-avatar, try-on) need real VRAM.
+# Below this, a local GPU would OOM, so those default to a hosted provider even
+# though the GPU is used for light tasks (face swap / restore). Tune via env.
+HEAVY_MIN_VRAM_GB = float(os.environ.get("HEAVY_MIN_VRAM_GB", "6"))
+GPU_OK_FOR_HEAVY = HAS_GPU and VRAM_GB >= HEAVY_MIN_VRAM_GB
 
 
-def _default_provider() -> str:
-    """When a GPU is present, run models locally by default; else use a host.
+def _default_provider(heavy: bool = True) -> str:
+    """Default provider for a feature.
 
-    Overridable per-feature via the WAN_/MOTION_/AVATAR_PROVIDER env vars.
+    heavy=True  (motion / avatar / try-on): local only if the GPU has enough
+                VRAM; otherwise hosted, so a small GPU doesn't OOM.
+    heavy=False (face swap / restore): local whenever any GPU is present.
+    Always overridable per-feature via the *_PROVIDER env vars.
     """
+    if heavy:
+        return "local" if GPU_OK_FOR_HEAVY else "fal"
     return "local" if HAS_GPU else "fal"
 
 
@@ -121,8 +146,8 @@ SADTALKER_DIR = os.environ.get("SADTALKER_DIR", "")
 SADTALKER_PYTHON = os.environ.get("SADTALKER_PYTHON", "python")
 
 # --- Face swap (change the face in a photo) --------------------------------
-# Local: InsightFace inswapper (CPU-capable). Hosted: fal / replicate.
-FACESWAP_PROVIDER = os.environ.get("FACESWAP_PROVIDER", _default_provider()).lower()
+# Local: InsightFace inswapper (CPU-capable, light). Hosted: fal / replicate.
+FACESWAP_PROVIDER = os.environ.get("FACESWAP_PROVIDER", _default_provider(heavy=False)).lower()
 FAL_FACESWAP_MODEL = os.environ.get("FAL_FACESWAP_MODEL", "fal-ai/face-swap")
 REPLICATE_FACESWAP_MODEL = os.environ.get(
     "REPLICATE_FACESWAP_MODEL", "cdingram/face-swap")
@@ -135,8 +160,8 @@ REPLICATE_FACESWAP_VIDEO_MODEL = os.environ.get(
 INSWAPPER_MODEL = os.environ.get("INSWAPPER_MODEL", "")
 
 # --- Face restoration (sharpen / enhance faces, e.g. after a swap) ----------
-# Local: GFPGAN (CPU-capable). Hosted: fal / replicate GFPGAN.
-RESTORE_PROVIDER = os.environ.get("RESTORE_PROVIDER", _default_provider()).lower()
+# Local: GFPGAN (CPU-capable, light). Hosted: fal / replicate GFPGAN.
+RESTORE_PROVIDER = os.environ.get("RESTORE_PROVIDER", _default_provider(heavy=False)).lower()
 # Local GFPGAN weights — a URL auto-downloads on first use; override with a path.
 GFPGAN_MODEL = os.environ.get(
     "GFPGAN_MODEL",
@@ -198,6 +223,10 @@ def provider_status() -> dict:
         "active": WAN_PROVIDER,
         "device": DEVICE,
         "has_gpu": HAS_GPU,
+        "gpu_name": GPU_NAME,
+        "vram_gb": round(VRAM_GB, 1),
+        "gpu_ok_for_heavy": GPU_OK_FOR_HEAVY,
+        "heavy_min_vram_gb": HEAVY_MIN_VRAM_GB,
         "fal": {"configured": bool(FAL_KEY), "t2v": FAL_T2V_MODEL, "i2v": FAL_I2V_MODEL},
         "replicate": {
             "configured": bool(REPLICATE_API_TOKEN),
@@ -274,6 +303,9 @@ def current_settings() -> dict:
     return {
         "device": DEVICE,
         "has_gpu": HAS_GPU,
+        "gpu_name": GPU_NAME,
+        "vram_gb": round(VRAM_GB, 1),
+        "gpu_ok_for_heavy": GPU_OK_FOR_HEAVY,
         "provider": WAN_PROVIDER,
         "fields": SECRET_FIELDS,
         "keys": {
