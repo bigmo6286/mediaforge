@@ -57,10 +57,10 @@ dev mode below.
 
 1. **Install the prerequisites** (once):
    - [Python 3.10+](https://www.python.org/downloads/windows/) — at the start of
-     the installer, tick **“Add python.exe to PATH”**.
-   - [Node.js 18+ (LTS)](https://nodejs.org/en/download) — the default installer
-     is fine.
+     the installer, tick **“Add python.exe to PATH”**. **Required.**
    - [Git for Windows](https://git-scm.com/download/win) (to clone the repo).
+   - [Node.js 18+ (LTS)](https://nodejs.org/en/download) — **optional**, only if
+     you plan to change the frontend (the built UI already ships in the repo).
    - Reopen PowerShell afterward so the new PATH takes effect.
 
 2. **Get the code** (in PowerShell):
@@ -78,9 +78,30 @@ dev mode below.
 4. **Add your API key** in the app’s ⚙ **Settings** tab (or skip — local voice and
    all editing work with no key). To stop the app, press **Ctrl+C** in the window.
 
-> First run takes a few minutes (it installs Python + Node packages). Later runs
+> First run takes a few minutes (it installs the Python packages). Later runs
 > start in seconds. If PowerShell blocks the script, the `-ExecutionPolicy Bypass`
 > in the command above already handles it — run the whole line as shown.
+
+### Running it again (after the first time)
+
+You don't reinstall anything — just start it:
+
+```powershell
+cd mediaforge
+powershell -ExecutionPolicy Bypass -File run.ps1
+```
+```bash
+cd mediaforge && ./run.sh      # macOS / Linux
+```
+
+`run.ps1` / `run.sh` detect the existing setup and **skip the install/build steps**,
+so it launches in a few seconds, opens `http://127.0.0.1:8000`, and even stops a
+leftover server still holding the port. Your saved API keys persist (in
+`backend/.env`). Press **Ctrl+C** in the window to stop.
+
+- **Update to the latest version:** `git pull` first, then run as above.
+- **Enabled the GPU** (`setup_gpu.ps1`)? Just use `run.ps1` from then on — it reuses
+  that environment; no need to rerun the GPU setup.
 
 Manual steps on Windows, if you'd rather not use the script:
 ```powershell
