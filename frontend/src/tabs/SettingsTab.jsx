@@ -133,10 +133,35 @@ export default function SettingsTab({ onSaved }) {
         </p>
       )}
 
-      <p className="hint" style={{ marginTop: 20 }}>
-        Prefer no keys? On a machine with a GPU everything runs locally for free, or
-        use the free Colab notebook in <code>colab/</code>. Local voice (Piper) and
-        all editing already work with no key.
+      <div className="colab-card">
+        <div className="settings-row">
+          <span><b>Free GPU via Google Colab</b></span>
+          <a
+            className="colab-btn"
+            href="https://colab.research.google.com/github/bigmo6286/mediaforge/blob/main/colab/MediaForge_FreeGPU.ipynb"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Colab ↗
+          </a>
+        </div>
+        <p className="hint" style={{ marginTop: 8 }}>
+          No key, no local GPU needed — run motion generation on Colab's free T4:
+        </p>
+        <ol className="colab-steps">
+          <li>Click <b>Open in Colab</b> above.</li>
+          <li>Enable the GPU: <b>Runtime → Change runtime type → GPU → Save</b>.</li>
+          <li>Run each cell top to bottom (Shift+Enter). The last cell prints a link.</li>
+          <li>Click that link to open MediaForge, go to <b>Motion</b>, and Generate.</li>
+        </ol>
+        <p className="hint">
+          Talking-avatar generation needs a hosted key above (or SadTalker setup);
+          motion, voice and editing are free.
+        </p>
+      </div>
+
+      <p className="hint" style={{ marginTop: 16 }}>
+        Local voice (Piper) and all editing already work with no key.
       </p>
     </div>
   );

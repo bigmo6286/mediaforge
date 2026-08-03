@@ -178,4 +178,17 @@ input[type="range"] { accent-color: var(--accent); padding: 0; }
 .warn-pill { color: var(--danger); background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.35); }
 .save-ok { color: var(--accent-2); font-size: 13px; }
 
+.colab-card {
+  margin-top: 22px; padding: 16px; border-radius: var(--radius);
+  border: 1px solid rgba(255,193,7,.35); background: rgba(255,193,7,.06);
+}
+.colab-btn {
+  background: linear-gradient(135deg, #f9ab00, #ffc107); color: #1a1a1a;
+  font-weight: 700; font-size: 13px; padding: 8px 14px; border-radius: 8px;
+  text-decoration: none; white-space: nowrap;
+}
+.colab-btn:hover { filter: brightness(1.08); }
+.colab-steps { margin: 8px 0 4px; padding-left: 20px; color: var(--muted); font-size: 13px; }
+.colab-steps li { margin-bottom: 5px; }
+
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); }

@@ -195,15 +195,28 @@ Every model id and avatar input-field name is overridable via env vars (see
 `app/config.py` and `.env.example`) — so you can point the avatar tab at
 SadTalker, Hallo, or Wan2.2-S2V without touching code.
 
-## Run it free on a GPU (no API keys)
+## Run it free on a GPU (Google Colab)
 
-The models are open-source; only the *hosting* costs money. To stay 100% free,
-run the models yourself on a **free Colab/Kaggle T4** using
-[`colab/MediaForge_FreeGPU.ipynb`](colab/MediaForge_FreeGPU.ipynb): it launches
-the whole backend on the free GPU with `MOTION_PROVIDER=local` and exposes a
-public URL. LTX-Video + SadTalker + Kokoro/Piper all fit a free T4. (The big
-Wan-14B model does **not** fit 16 GB — use LTX or Wan-1.3B; longer clips come
-from chaining, not a bigger model.)
+No local GPU (or too little VRAM)? Run the models on Colab's **free T4 (16 GB)** —
+motion generation runs there for free, no API keys. Your own machine isn't even
+needed beyond a browser.
+
+**Steps:**
+
+1. Open the notebook in Colab (one click):
+   👉 **[Open MediaForge in Colab](https://colab.research.google.com/github/bigmo6286/mediaforge/blob/main/colab/MediaForge_FreeGPU.ipynb)**
+2. Turn on the GPU: **Runtime → Change runtime type → Hardware accelerator → GPU → Save**.
+3. Run the cells top to bottom (Shift+Enter on each). Cell 2 installs deps (~2 min).
+4. The **last cell prints a link** — click it to open MediaForge in your browser.
+5. Go to the **Motion** tab, type a prompt, and Generate. The first run downloads
+   the model weights (a few minutes); after that it's fast. Keep the Colab tab open.
+
+Notes:
+- **Motion (text/image → video)** works out of the box on the free GPU.
+- **Talking Avatar** needs SadTalker set up separately — the easy route for
+  avatars is a small hosted credit (add a fal key in **⚙ Settings**).
+- Free Colab sessions time out after a while / the GPU can be busy at peak times;
+  just rerun the cells for a fresh session.
 
 ## Notes
 - These are **batch renderers** — great for pre-recorded UGC/tutorial/presenter
