@@ -8,7 +8,8 @@ $ws = New-Object -ComObject WScript.Shell
 $lnk = $ws.CreateShortcut($lnkPath)
 $lnk.TargetPath = Join-Path $root 'MediaForge.bat'
 $lnk.WorkingDirectory = $root
-$lnk.IconLocation = 'shell32.dll,220'   # a small film/clip icon
+$ico = Join-Path $root 'assets\mediaforge.ico'
+if (Test-Path $ico) { $lnk.IconLocation = $ico } else { $lnk.IconLocation = 'shell32.dll,220' }
 $lnk.Description = 'Launch MediaForge'
 $lnk.Save()
 
