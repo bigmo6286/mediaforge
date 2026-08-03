@@ -10,15 +10,22 @@ from .media import _resolve
 router = APIRouter()
 
 
+_VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
+
+
 @router.post("/faceswap")
 async def face_swap(
-    target: str = Form(...),       # photo whose face gets replaced
+    target: str = Form(...),       # photo OR video whose face gets replaced
     source_face: str = Form(...),  # photo of the face to insert
 ) -> dict:
     tgt = _resolve(target)
     src = _resolve(source_face)
-    job = manager.submit("edit.faceswap",
-                         lambda pr: faceswap.swap(src, tgt, pr))
+    if tgt.suffix.lower() in _VIDEO_EXT:  # swap across every frame
+        job = manager.submit("edit.faceswap_video",
+                             lambda pr: faceswap.swap_video(src, tgt, pr))
+    else:
+        job = manager.submit("edit.faceswap",
+                             lambda pr: faceswap.swap(src, tgt, pr))
     return {"job_id": job.id}
 
 

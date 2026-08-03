@@ -266,3 +266,45 @@ def trim_to(input_path: Path, seconds: float, progress: JobProgress) -> Path:
 def output_path_for(suffix: str) -> Path:
     """Public accessor for a fresh output path (used by other modules)."""
     return _out_path(suffix)
+
+
+def video_fps(input_path: Path) -> float:
+    """Frame rate of a clip, parsed from ffmpeg's stderr. Falls back to 24."""
+    import re
+    proc = subprocess.run([_resolve_ffmpeg(), "-i", str(input_path)],
+                          capture_output=True, text=True)
+    m = re.search(r"(\d+(?:\.\d+)?)\s*fps", proc.stderr or "")
+    return float(m.group(1)) if m else 24.0
+
+
+def explode_frames(input_path: Path, progress: JobProgress) -> tuple[Path, float]:
+    """Extract every frame to PNGs in a fresh dir. Returns (dir, fps)."""
+    stamp = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    folder = config.OUTPUT_DIR / f"swap_frames_{stamp}"
+    folder.mkdir(parents=True, exist_ok=True)
+    progress.update(message="extracting frames")
+    cmd = [_resolve_ffmpeg(), "-y", "-i", str(input_path),
+           str(folder / "f_%06d.png")]
+    _run(cmd, progress)
+    return folder, video_fps(input_path)
+
+
+def assemble_video(frames_dir: Path, fps: float, audio_from: Path,
+                   progress: JobProgress) -> Path:
+    """Rebuild a clip from PNG frames, muxing audio from the original if any."""
+    out = _out_path(".mp4")
+    progress.update(message="encoding video")
+    cmd = [_resolve_ffmpeg(), "-y", "-framerate", str(fps),
+           "-i", str(frames_dir / "f_%06d.png"),
+           "-i", str(audio_from), "-map", "0:v:0", "-map", "1:a:0?",
+           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
+           "-shortest", str(out)]
+    try:
+        _run(cmd, progress)
+    except RuntimeError:  # original had no audio track
+        cmd = [_resolve_ffmpeg(), "-y", "-framerate", str(fps),
+               "-i", str(frames_dir / "f_%06d.png"),
+               "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
+               str(out)]
+        _run(cmd, progress)
+    return out

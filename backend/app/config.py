@@ -124,6 +124,11 @@ FACESWAP_PROVIDER = os.environ.get("FACESWAP_PROVIDER", _default_provider()).low
 FAL_FACESWAP_MODEL = os.environ.get("FAL_FACESWAP_MODEL", "fal-ai/face-swap")
 REPLICATE_FACESWAP_MODEL = os.environ.get(
     "REPLICATE_FACESWAP_MODEL", "cdingram/face-swap")
+# Video face-swap (hosted): swaps the face across a whole clip.
+FAL_FACESWAP_VIDEO_MODEL = os.environ.get(
+    "FAL_FACESWAP_VIDEO_MODEL", "fal-ai/face-swap/video")
+REPLICATE_FACESWAP_VIDEO_MODEL = os.environ.get(
+    "REPLICATE_FACESWAP_VIDEO_MODEL", "arabyai-replicate/roop_face_swap")
 # Local inswapper .onnx (set INSWAPPER_MODEL to enable FACESWAP_PROVIDER=local).
 INSWAPPER_MODEL = os.environ.get("INSWAPPER_MODEL", "")
 

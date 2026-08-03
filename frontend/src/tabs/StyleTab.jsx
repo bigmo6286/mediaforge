@@ -27,10 +27,14 @@ export default function StyleTab({ providers, onResult }) {
   );
 }
 
+const isVideoPath = (p) => /\.(mp4|mov|mkv|webm|avi)$/i.test(p || "");
+
 function FaceSwap({ providers, onResult }) {
-  const [target, setTarget] = useState(null); // photo whose face is replaced
+  const [target, setTarget] = useState(null); // photo OR video whose face is replaced
   const [face, setFace] = useState(null); // face to insert
   const { state, run, busy } = useJobRunner();
+
+  const targetIsVideo = isVideoPath(target?.path);
 
   const submit = async () => {
     if (!target || !face) return;
@@ -38,7 +42,7 @@ function FaceSwap({ providers, onResult }) {
       const result = await run(
         postForm("/api/edit/faceswap", { target: target.path, source_face: face.path })
       );
-      onResult({ title: "Face swap", ...result });
+      onResult({ title: targetIsVideo ? "Face swap (video)" : "Face swap", ...result });
     } catch (e) {
       /* shown in progress bar */
     }
@@ -47,14 +51,19 @@ function FaceSwap({ providers, onResult }) {
   return (
     <>
       <p className="muted">
-        Replace the face in a photo with another face. Use it only on people who
-        have consented to it.
+        Replace the face in a <b>photo or video</b> with another face — swapped
+        across every frame for video. Use it only on people who have consented.
       </p>
       <div className="row wrap">
         <div className="field">
-          <label>Target photo (face gets replaced)</label>
-          <Uploader accept="image/*" label="Upload the scene photo" onUploaded={setTarget} />
-          {target && <img className="preview" src={fileUrl(target.path)} alt="target" />}
+          <label>Target photo or video (face gets replaced)</label>
+          <Uploader accept="image/*,video/*" label="Upload a photo or video" onUploaded={setTarget} />
+          {target &&
+            (targetIsVideo ? (
+              <video className="preview" src={fileUrl(target.path)} controls />
+            ) : (
+              <img className="preview" src={fileUrl(target.path)} alt="target" />
+            ))}
         </div>
         <div className="field">
           <label>Face photo (identity to insert)</label>
@@ -63,12 +72,15 @@ function FaceSwap({ providers, onResult }) {
         </div>
       </div>
       <button className="primary" disabled={busy || !target || !face} onClick={submit}>
-        {busy ? "Swapping…" : "Swap face"}
+        {busy ? "Swapping…" : targetIsVideo ? "Swap face in video" : "Swap face"}
       </button>
       <p className="hint">
         Runs on <b>{providers?.faceswap?.provider}</b>
         {providers?.faceswap?.provider === "local" && !providers?.faceswap?.local_ready
           ? " · set INSWAPPER_MODEL to enable local"
+          : ""}
+        {targetIsVideo && providers?.faceswap?.provider === "local"
+          ? " · video is processed frame-by-frame (slow on CPU)"
           : ""}
       </p>
       <ProgressBar state={state} />

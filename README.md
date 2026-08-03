@@ -23,7 +23,7 @@ clean web UI.
 |-----|---------|---------|
 | 🎤 **Talking Avatar** | 1 photo + voice → lip-synced presenter (SadTalker/Hallo/Wan2.2-S2V). Voice from a typed **script** (TTS) or an uploaded recording. | GPU (hosted or local); TTS can run locally on CPU via Piper |
 | ✨ **Motion** | Text→Video / Image→Video with **LTX-Video** (free-GPU friendly) or **Wan**. A duration slider goes to 30s — clips longer than one model window are built by **auto-chaining** segments (last frame seeds the next) and trimmed to length. | GPU (hosted or local) |
-| 🎭 **Face & Wardrobe** | **Face swap** (change the face in a photo; InsightFace local or hosted) and **Dress change** (virtual try-on with IDM-VTON) | face swap: CPU/GPU · try-on: GPU (hosted) |
+| 🎭 **Face & Wardrobe** | **Face swap** on a **photo or video** (swapped across every frame; InsightFace local or hosted) and **Dress change** (virtual try-on with IDM-VTON) | face swap: CPU/GPU · try-on: GPU (hosted) |
 | 🎬 **Video Edit** | Trim, crop, resize, speed, → GIF, convert, extract frames, extract audio | **CPU, local** |
 | 🖼️ **Image Edit** | Background removal, resize, format convert | **CPU, local** |
 
