@@ -21,7 +21,7 @@ function CheckExit($what) {
     if ($LASTEXITCODE -ne 0) { Fail "$what failed (exit $LASTEXITCODE). See the output above." }
 }
 
-Write-Host "MediaForge setup — first run installs packages and can take a few minutes." -ForegroundColor Yellow
+Write-Host "MediaForge setup - first run installs packages and can take a few minutes." -ForegroundColor Yellow
 
 # --- locate Node/npm ---
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
@@ -63,7 +63,7 @@ Write-Host "    installing Python packages (progress shown below)..."
 & ".venv\Scripts\python.exe" -m pip install -r requirements.txt; CheckExit "pip install"
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
 
-# Optional local voice (Piper) — best effort, never blocks the app.
+# Optional local voice (Piper) - best effort, never blocks the app.
 Write-Host "    installing local voice (Piper, optional)..."
 & ".venv\Scripts\python.exe" -m pip install -r requirements-voice.txt
 if ($LASTEXITCODE -eq 0) {
@@ -71,13 +71,13 @@ if ($LASTEXITCODE -eq 0) {
         & ".venv\Scripts\python.exe" -m piper.download_voices en_US-amy-medium en_US-ryan-high --data-dir voices 2>$null
     }
 } else {
-    Write-Host "    (Piper voice unavailable on this system — avatar will use hosted TTS.)" -ForegroundColor Yellow
+    Write-Host "    (Piper voice unavailable on this system - avatar will use hosted TTS.)" -ForegroundColor Yellow
 }
 
 # --- 4/4 start ---
 Step 4 "Starting MediaForge..."
 Write-Host ""
-Write-Host "  Ready — open  http://127.0.0.1:8000" -ForegroundColor Green
+Write-Host "  Ready - open  http://127.0.0.1:8000" -ForegroundColor Green
 Write-Host "  (Ctrl+C to stop)"
 Write-Host ""
 Start-Process "http://127.0.0.1:8000"
