@@ -1,37 +1,45 @@
 #!/usr/bin/env bash
-# One-shot setup for running MediaForge locally on a CUDA GPU machine.
-# After this, everything (LTX/Wan motion, avatar, TTS) runs on-device — no keys.
+# One-shot GPU setup for MediaForge (NVIDIA CUDA). Installs the CUDA build of
+# PyTorch + the model stack so generation runs locally with no API keys.
+# Run once, then use ./run.sh as normal.
+#
+# CUDA channel: cu121 suits most recent drivers. Override: TORCH_CUDA=cu124 ./setup_gpu.sh
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT/backend"
+CUDA="${TORCH_CUDA:-cu121}"
 
-echo "==> Python venv + base deps"
-python3 -m venv .venv
-./.venv/bin/pip install -q --upgrade pip
-./.venv/bin/pip install -r requirements.txt
-
-echo "==> Checking for CUDA GPU"
+echo "==> Checking for an NVIDIA GPU"
 if command -v nvidia-smi >/dev/null 2>&1; then
-  nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
-  echo "==> Installing GPU model stack (torch + diffusers). This is large."
-  ./.venv/bin/pip install -r requirements-gpu.txt
+  nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 else
-  echo "!! No nvidia-smi found — skipping GPU stack."
-  echo "   MediaForge will use hosted providers (add a key) or CPU editing/TTS."
+  echo "!! nvidia-smi not found. The CUDA build needs an NVIDIA GPU + driver."
+  echo "   (AMD/Intel GPUs are not supported here.)"
 fi
 
-echo "==> Local voices for the avatar (Piper, CPU) — optional"
+echo "==> Python venv + base deps"
+[ -d .venv ] || python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/pip install -r requirements.txt
+
+echo "==> Installing CUDA PyTorch ($CUDA) - large download"
+./.venv/bin/pip install torch torchvision --index-url "https://download.pytorch.org/whl/$CUDA"
+
+echo "==> Installing the model stack (diffusers, transformers, ...)"
+./.venv/bin/pip install -r requirements-gpu.txt
+
+echo "==> Local voice (Piper) - optional"
 if ./.venv/bin/pip install -r requirements-voice.txt; then
   ./.venv/bin/python -m piper.download_voices \
     en_US-amy-medium en_US-ryan-high en_GB-alba-medium --data-dir voices || true
-else
-  echo "   (Piper unavailable here — avatar will use hosted TTS.)"
 fi
 
 echo ""
-echo "Done. MediaForge auto-detects the GPU on startup:"
-./.venv/bin/python -c "from app import config; print('  device =', config.DEVICE, '| default provider =', config.WAN_PROVIDER)"
+echo "==> Verifying GPU is visible to PyTorch"
+./.venv/bin/python -c "import torch; ok=torch.cuda.is_available(); print('CUDA available:', ok); print('GPU:', torch.cuda.get_device_name(0) if ok else 'NONE - will fall back to hosted/CPU')"
+./.venv/bin/python -c "from app import config; print('MediaForge device =', config.DEVICE, '| default provider =', config.WAN_PROVIDER)"
+
 echo ""
-echo "Start it with:  ./run.sh    (UI at http://localhost:5173)"
-echo "For local talking-avatar, also clone SadTalker and set SADTALKER_DIR"
-echo "(see README). Motion + TTS work without it."
+echo "Done. If CUDA shows True above, start the app and it runs on your GPU:"
+echo "  ./run.sh"
+echo "If CUDA shows False, update your NVIDIA driver, or try TORCH_CUDA=cu124."

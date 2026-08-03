@@ -148,6 +148,13 @@ REPLICATE_API_TOKEN=your_token # https://replicate.com/account/api-tokens
 powershell -ExecutionPolicy Bypass -File setup_gpu.ps1   # Windows GPU setup
 powershell -ExecutionPolicy Bypass -File run.ps1
 ```
+> **GPU not detected?** The normal `run.ps1` / `run.sh` install only the light
+> stack — **PyTorch is not included** (it's ~2.5 GB), so `torch.cuda.is_available()`
+> is false and models stay on the hosted/CPU path. Run **`setup_gpu.ps1`** (Windows)
+> or **`setup_gpu.sh`** once to install the CUDA build of PyTorch + the model
+> stack; it prints `CUDA available: True` and the GPU name when it worked. Needs
+> an **NVIDIA** GPU + current driver (AMD/Intel aren't supported by the CUDA build).
+
 On startup MediaForge calls `torch.cuda.is_available()` and, if a GPU is found,
 **auto-defaults every model to `local`** — Wan and LTX-Video run on your card via
 `diffusers`, no API keys, nothing to configure. The header shows `⚡ GPU` and

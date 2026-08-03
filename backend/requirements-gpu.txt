@@ -1,14 +1,13 @@
-# GPU extras — install these ON A MACHINE WITH A CUDA GPU, on top of
-# requirements.txt, to run Wan / LTX-Video locally (no hosted API, no keys).
+# GPU model stack (diffusers etc.) for running Wan / LTX-Video locally.
 #
-#   pip install -r requirements.txt
-#   pip install -r requirements-gpu.txt
+# IMPORTANT: torch + torchvision are NOT listed here on purpose. On Windows,
+# `--extra-index-url` often resolves to the CPU-only Torch wheel from PyPI, so
+# the GPU never activates. The setup scripts install Torch explicitly from the
+# CUDA index instead:
 #
-# Torch: install the build that matches your CUDA. The line below targets
-# CUDA 12.1 — change cu121 to your version, or see https://pytorch.org.
---extra-index-url https://download.pytorch.org/whl/cu121
-torch>=2.3
-torchvision>=0.18
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#
+# setup_gpu.ps1 / setup_gpu.sh do this for you. Then this file provides the rest:
 
 diffusers>=0.31          # WanPipeline, LTXPipeline, LTXImageToVideoPipeline
 transformers>=4.44

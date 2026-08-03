@@ -78,6 +78,17 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "    (Piper voice unavailable on this system - avatar will use hosted TTS.)" -ForegroundColor Yellow
 }
 
+# Hint: NVIDIA GPU present but the local GPU stack (PyTorch) isn't installed.
+if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+    & ".venv\Scripts\python.exe" -c "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "    NVIDIA GPU detected, but local GPU generation isn't enabled yet." -ForegroundColor Yellow
+        Write-Host "    To run models on your GPU (free, no API keys), run this once:" -ForegroundColor Yellow
+        Write-Host "      powershell -ExecutionPolicy Bypass -File setup_gpu.ps1" -ForegroundColor Yellow
+    }
+}
+
 # --- 4/4 start ---
 Step 4 "Starting MediaForge..."
 
