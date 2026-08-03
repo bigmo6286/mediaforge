@@ -3,16 +3,20 @@
 # locally with no API keys. Run this ONCE, then use run.ps1 as normal.
 #   powershell -ExecutionPolicy Bypass -File setup_gpu.ps1
 #
-# CUDA channel: cu121 works for most recent NVIDIA drivers. Override if needed:
-#   $env:TORCH_CUDA="cu124"; powershell -ExecutionPolicy Bypass -File setup_gpu.ps1
+# Needs Python 3.11/3.12/3.13 (PyTorch has no CUDA wheels for 3.14 yet); the
+# script auto-selects a compatible one via the 'py' launcher.
+# CUDA channel defaults to cu124. Override if needed:
+#   $env:TORCH_CUDA="cu126"; powershell -ExecutionPolicy Bypass -File setup_gpu.ps1
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location "$root\backend"
 $cuda = if ($env:TORCH_CUDA) { $env:TORCH_CUDA } else { "cu124" }
 
-function Find-Py {
-    if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 --version 2>$null; if ($LASTEXITCODE -eq 0) { return @("py","-3") } }
-    if (Get-Command python -ErrorAction SilentlyContinue) { return @("python") }
+# PyTorch publishes CUDA wheels only for these Python versions (3.14 is too new).
+$COMPAT = @("3.12","3.11","3.13")
+function Find-CompatVer {
+    if (-not (Get-Command py -ErrorAction SilentlyContinue)) { return $null }
+    foreach ($v in $COMPAT) { & py "-$v" --version 2>$null; if ($LASTEXITCODE -eq 0) { return $v } }
     return $null
 }
 
@@ -25,11 +29,29 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
     Read-Host "Press Enter to continue anyway, or Ctrl+C to stop"
 }
 
-$pycmd = Find-Py
-if (-not $pycmd) { Write-Host "ERROR: Python 3 not found. Install from python.org (Add to PATH)." -ForegroundColor Red; exit 1 }
+# Find a PyTorch-compatible Python (avoid 3.14, which has no CUDA wheels).
+$pyv = Find-CompatVer
+if (-not $pyv) {
+    Write-Host "ERROR: No PyTorch-compatible Python found (need 3.11, 3.12 or 3.13)." -ForegroundColor Red
+    Write-Host "Your Python is likely 3.14, which has no CUDA PyTorch wheels yet." -ForegroundColor Yellow
+    Write-Host "Install Python 3.12 (keep your 3.14 too - the 'py' launcher handles both):"
+    Write-Host "  https://www.python.org/downloads/release/python-3128/"
+    Write-Host "Tick 'Add python.exe to PATH' during install, then rerun this script."
+    Read-Host "Press Enter to close"; exit 1
+}
+Write-Host "==> Using Python $pyv (PyTorch-compatible)" -ForegroundColor Cyan
+
+# Rebuild the venv if it was created with an incompatible Python (e.g. 3.14).
+if (Test-Path ".venv\Scripts\python.exe") {
+    $vv = & ".venv\Scripts\python.exe" -c "import sys;print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+    if ($COMPAT -notcontains $vv) {
+        Write-Host "    existing .venv uses Python $vv (no CUDA wheels) - rebuilding on $pyv..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force ".venv"
+    }
+}
 
 Write-Host "==> Python venv + base deps" -ForegroundColor Cyan
-if (-not (Test-Path ".venv")) { & $pycmd @("-m","venv",".venv") }
+if (-not (Test-Path ".venv")) { & py "-$pyv" -m venv .venv }
 $py = ".venv\Scripts\python.exe"
 & $py -m pip install --upgrade pip
 & $py -m pip install -r requirements.txt
