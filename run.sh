@@ -8,14 +8,23 @@ step() { printf "\n==> [%s/4] %s\n" "$1" "$2"; }
 
 echo "MediaForge setup — first run installs packages and can take a few minutes."
 
-# --- 1/4 frontend deps ---
-cd "$ROOT/frontend"
-step 1 "Installing frontend packages (npm)..."
-if [ -d node_modules ]; then echo "    already installed, skipping."; else npm install; fi
-
-# --- 2/4 build UI ---
-step 2 "Building the web UI..."
-npm run build
+# --- 1-2/4 frontend UI ---
+# The prebuilt UI (frontend/dist) ships in the repo, so Node is NOT needed just
+# to run the app. Only build if dist is missing (e.g. you changed the frontend).
+if [ -f "$ROOT/frontend/dist/index.html" ]; then
+  step 1 "Web UI already built - skipping (no Node needed)."
+  step 2 "(build skipped)"
+elif command -v npm >/dev/null 2>&1; then
+  cd "$ROOT/frontend"
+  step 1 "Installing frontend packages (npm)..."
+  [ -d node_modules ] && echo "    already installed, skipping." || npm install
+  step 2 "Building the web UI..."
+  npm run build
+else
+  echo "ERROR: the web UI isn't built and npm isn't installed. Get a copy that"
+  echo "includes frontend/dist (git pull), or install Node.js from https://nodejs.org"
+  exit 1
+fi
 
 # --- 3/4 backend deps ---
 cd "$ROOT/backend"

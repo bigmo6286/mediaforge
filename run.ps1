@@ -23,11 +23,6 @@ function CheckExit($what) {
 
 Write-Host "MediaForge setup - first run installs packages and can take a few minutes." -ForegroundColor Yellow
 
-# --- locate Node/npm ---
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Fail "Node.js / npm not found. Install Node.js LTS from https://nodejs.org and reopen PowerShell."
-}
-
 # --- locate a real Python 3 (prefer the 'py' launcher; avoid the Store stub) ---
 $PY = $null; $PYARGS = @()
 if (Get-Command py -ErrorAction SilentlyContinue) {
@@ -43,15 +38,24 @@ if (-not $PY) {
           "'Add python.exe to PATH', then reopen PowerShell.")
 }
 
-# --- 1/4 frontend deps ---
-Set-Location "$root\frontend"
-Step 1 "Installing frontend packages (npm)..."
-if (Test-Path "node_modules") { Write-Host "    already installed, skipping." }
-else { npm install; CheckExit "npm install" }
-
-# --- 2/4 build UI ---
-Step 2 "Building the web UI..."
-npm run build; CheckExit "npm run build"
+# --- 1-2/4 frontend UI ---
+# The prebuilt UI (frontend/dist) ships in the repo, so Node is NOT needed just
+# to run the app. Only build if dist is missing (e.g. you changed the frontend).
+if (Test-Path "$root\frontend\dist\index.html") {
+    Step 1 "Web UI already built - skipping (no Node needed)."
+    Step 2 "(build skipped)"
+} elseif (Get-Command npm -ErrorAction SilentlyContinue) {
+    Set-Location "$root\frontend"
+    Step 1 "Installing frontend packages (npm)..."
+    if (Test-Path "node_modules") { Write-Host "    already installed, skipping." }
+    else { npm install; CheckExit "npm install" }
+    Step 2 "Building the web UI..."
+    npm run build; CheckExit "npm run build"
+} else {
+    Fail ("The web UI isn't built and Node.js/npm isn't installed. Get a copy " +
+          "that includes frontend/dist (git pull / re-download), or install " +
+          "Node.js LTS from https://nodejs.org and reopen PowerShell.")
+}
 
 # --- 3/4 backend deps ---
 Set-Location "$root\backend"

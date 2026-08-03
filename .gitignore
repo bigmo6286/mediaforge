@@ -6,7 +6,8 @@ backend/.env
 
 # Node
 frontend/node_modules/
-frontend/dist/
+# NOTE: frontend/dist IS committed so the app runs with only Python (no Node
+# needed just to run it). Rebuild it with `npm run build` when the UI changes.
 
 # Generated media
 data/uploads/*
