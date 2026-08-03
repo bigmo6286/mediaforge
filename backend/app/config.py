@@ -230,3 +230,96 @@ def provider_status() -> dict:
         "restore": {"provider": RESTORE_PROVIDER,
                     "fal": FAL_RESTORE_MODEL, "replicate": REPLICATE_RESTORE_MODEL},
     }
+
+
+# --- Settings page (edit .env from the UI) ---------------------------------
+# Secret keys the settings UI can set, with guidance shown to the user.
+SECRET_FIELDS = [
+    {
+        "key": "FAL_KEY",
+        "label": "fal.ai API key",
+        "hint": ("Runs Wan/LTX, talking-avatar, face-swap and try-on on fal's "
+                 "GPUs. Pay-per-render, no subscription; new accounts get some "
+                 "free credit. Create a key, then paste it here."),
+        "link": "https://fal.ai/dashboard/keys",
+    },
+    {
+        "key": "REPLICATE_API_TOKEN",
+        "label": "Replicate API token",
+        "hint": ("Alternative hosted-GPU provider for the same models. "
+                 "Pay-per-render. Create a token in your account settings."),
+        "link": "https://replicate.com/account/api-tokens",
+    },
+]
+
+# Every env var the settings endpoint is allowed to write.
+_EDITABLE = {"FAL_KEY", "REPLICATE_API_TOKEN", "WAN_PROVIDER", "MOTION_PROVIDER",
+             "AVATAR_PROVIDER", "FACESWAP_PROVIDER", "TRYON_PROVIDER",
+             "RESTORE_PROVIDER", "TTS_PROVIDER", "MOTION_MODEL"}
+# Setting any of these to a value cascades to every generation provider.
+_PROVIDER_VARS = ("WAN_PROVIDER", "MOTION_PROVIDER", "AVATAR_PROVIDER",
+                  "FACESWAP_PROVIDER", "TRYON_PROVIDER", "RESTORE_PROVIDER")
+
+
+def _mask(v: str) -> str:
+    if not v:
+        return ""
+    return f"{v[:3]}…{v[-3:]}" if len(v) > 8 else "••••"
+
+
+def current_settings() -> dict:
+    """What the settings UI renders: masked key state + current provider."""
+    return {
+        "device": DEVICE,
+        "has_gpu": HAS_GPU,
+        "provider": WAN_PROVIDER,
+        "fields": SECRET_FIELDS,
+        "keys": {
+            "FAL_KEY": {"set": bool(FAL_KEY), "masked": _mask(FAL_KEY)},
+            "REPLICATE_API_TOKEN": {"set": bool(REPLICATE_API_TOKEN),
+                                    "masked": _mask(REPLICATE_API_TOKEN)},
+        },
+    }
+
+
+def apply_settings(updates: dict) -> dict:
+    """Persist edits to .env and apply them live (no restart needed).
+
+    Only whitelisted keys are written. Values are set on os.environ and on this
+    module's globals so running providers pick them up immediately.
+    """
+    import sys
+
+    mod = sys.modules[__name__]
+
+    # Read the existing .env into a dict (preserving unrelated keys).
+    env: dict[str, str] = {}
+    if _ENV_FILE.exists():
+        for line in _ENV_FILE.read_text().splitlines():
+            s = line.strip()
+            if s and not s.startswith("#") and "=" in s:
+                k, _, v = s.partition("=")
+                env[k.strip()] = v.strip()
+
+    applied = []
+    for key, raw in updates.items():
+        if key not in _EDITABLE:
+            continue
+        val = str(raw).strip()
+        norm = val.lower() if (key.endswith("_PROVIDER") or key == "MOTION_MODEL") else val
+        if val:
+            env[key] = val
+        else:
+            env.pop(key, None)
+        os.environ[key] = val
+        setattr(mod, key, norm)
+        applied.append(key)
+
+    # Write .env back (0600 so the key file isn't world-readable).
+    body = "\n".join(f"{k}={v}" for k, v in env.items() if v != "") + "\n"
+    _ENV_FILE.write_text(body)
+    try:
+        _ENV_FILE.chmod(0o600)
+    except OSError:
+        pass
+    return {"applied": applied}

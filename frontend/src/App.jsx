@@ -5,6 +5,7 @@ import GenerateTab from "./tabs/GenerateTab.jsx";
 import StyleTab from "./tabs/StyleTab.jsx";
 import VideoTab from "./tabs/VideoTab.jsx";
 import ImageTab from "./tabs/ImageTab.jsx";
+import SettingsTab from "./tabs/SettingsTab.jsx";
 import Gallery from "./components/Gallery.jsx";
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { id: "style", label: "🎭 Face & Wardrobe" },
   { id: "video", label: "🎬 Video Edit" },
   { id: "image", label: "🖼️ Image Edit" },
+  { id: "settings", label: "⚙ Settings" },
 ];
 
 export default function App() {
@@ -20,8 +22,10 @@ export default function App() {
   const [providers, setProviders] = useState(null);
   const [results, setResults] = useState([]); // {title, output, kind}
 
-  useEffect(() => {
+  const refreshProviders = () =>
     getProviders().then(setProviders).catch(() => setProviders(null));
+  useEffect(() => {
+    refreshProviders();
   }, []);
 
   const addResult = (r) => setResults((prev) => [r, ...prev]);
@@ -86,6 +90,7 @@ export default function App() {
           )}
           {tab === "video" && <VideoTab onResult={addResult} />}
           {tab === "image" && <ImageTab onResult={addResult} />}
+          {tab === "settings" && <SettingsTab onSaved={refreshProviders} />}
         </section>
 
         <aside className="sidebar">

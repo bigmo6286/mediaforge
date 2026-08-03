@@ -70,8 +70,12 @@ commands as above. Requires Python 3.10+ and Node 18+.
 
 ## Enabling AI generation
 
+**Easiest: the ⚙ Settings tab in the app.** Paste your API key, pick the
+provider, and hit Save — it writes `backend/.env` (git-ignored, `0600` perms)
+and applies instantly, no restart. Each field has a hint and a "get key" link.
+
 Local editing works out of the box. For the **Talking Avatar** and **Motion**
-tabs you need one GPU backend. Pick either:
+tabs you need one GPU backend. Pick either (via Settings, or by editing `.env`):
 
 **fal.ai** (simplest)
 ```

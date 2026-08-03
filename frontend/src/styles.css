@@ -167,4 +167,15 @@ input[type="range"] { accent-color: var(--accent); padding: 0; }
 .result audio { width: 100%; }
 .download { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--accent-2); text-decoration: none; }
 
+/* Settings */
+.settings-card {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 20px;
+}
+.settings-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.getkey { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.getkey:hover { text-decoration: underline; }
+.warn-pill { color: var(--danger); background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.35); }
+.save-ok { color: var(--accent-2); font-size: 13px; }
+
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); }

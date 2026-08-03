@@ -27,6 +27,15 @@ export async function getProviders() {
   return r.json();
 }
 
+export async function getSettings() {
+  const r = await fetch("/api/settings");
+  return r.json();
+}
+
+export async function saveSettings(fields) {
+  return postForm("/api/settings", fields);
+}
+
 // Poll a job until it finishes; onTick(job) is called on each update.
 export function pollJob(id, onTick) {
   return new Promise((resolve, reject) => {
