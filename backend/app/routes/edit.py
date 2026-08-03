@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Form
 
 from ..jobs import manager
-from ..providers import faceswap, tryon
+from ..providers import faceswap, restore, tryon
 from .media import _resolve
 
 router = APIRouter()
@@ -15,17 +15,33 @@ _VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
 
 @router.post("/faceswap")
 async def face_swap(
-    target: str = Form(...),       # photo OR video whose face gets replaced
-    source_face: str = Form(...),  # photo of the face to insert
+    target: str = Form(...),        # photo OR video whose face gets replaced
+    source_face: str = Form(...),   # photo of the face to insert
+    restore_faces: bool = Form(False),  # GFPGAN sharpen pass afterward
 ) -> dict:
     tgt = _resolve(target)
     src = _resolve(source_face)
     if tgt.suffix.lower() in _VIDEO_EXT:  # swap across every frame
-        job = manager.submit("edit.faceswap_video",
-                             lambda pr: faceswap.swap_video(src, tgt, pr))
+        job = manager.submit(
+            "edit.faceswap_video",
+            lambda pr: faceswap.swap_video(src, tgt, pr, restore=restore_faces))
     else:
-        job = manager.submit("edit.faceswap",
-                             lambda pr: faceswap.swap(src, tgt, pr))
+        job = manager.submit(
+            "edit.faceswap",
+            lambda pr: faceswap.swap(src, tgt, pr, restore=restore_faces))
+    return {"job_id": job.id}
+
+
+@router.post("/restore")
+async def restore_faces(target: str = Form(...)) -> dict:
+    """Sharpen/enhance faces in a photo or video with GFPGAN."""
+    tgt = _resolve(target)
+    if tgt.suffix.lower() in _VIDEO_EXT:
+        job = manager.submit("edit.restore_video",
+                             lambda pr: restore.restore_video(tgt, pr))
+    else:
+        job = manager.submit("edit.restore",
+                             lambda pr: restore.restore_image(tgt, pr))
     return {"job_id": job.id}
 
 

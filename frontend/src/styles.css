@@ -126,6 +126,12 @@ textarea { resize: vertical; }
 }
 input[type="range"] { accent-color: var(--accent); padding: 0; }
 
+.check {
+  display: flex; align-items: center; gap: 8px; font-size: 13px;
+  color: var(--muted); margin: 6px 0 14px; cursor: pointer;
+}
+.check input { width: auto; accent-color: var(--accent-2); }
+
 /* Uploader */
 .uploader {
   border: 2px dashed var(--border); border-radius: var(--radius);

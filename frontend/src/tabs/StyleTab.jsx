@@ -17,12 +17,13 @@ export default function StyleTab({ providers, onResult }) {
         <button className={mode === "dress" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("dress")}>
           Dress change
         </button>
+        <button className={mode === "restore" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("restore")}>
+          Restore faces
+        </button>
       </div>
-      {mode === "face" ? (
-        <FaceSwap providers={providers} onResult={onResult} />
-      ) : (
-        <DressChange providers={providers} onResult={onResult} />
-      )}
+      {mode === "face" && <FaceSwap providers={providers} onResult={onResult} />}
+      {mode === "dress" && <DressChange providers={providers} onResult={onResult} />}
+      {mode === "restore" && <RestoreFaces providers={providers} onResult={onResult} />}
     </div>
   );
 }
@@ -32,6 +33,7 @@ const isVideoPath = (p) => /\.(mp4|mov|mkv|webm|avi)$/i.test(p || "");
 function FaceSwap({ providers, onResult }) {
   const [target, setTarget] = useState(null); // photo OR video whose face is replaced
   const [face, setFace] = useState(null); // face to insert
+  const [restore, setRestore] = useState(true); // GFPGAN sharpen pass
   const { state, run, busy } = useJobRunner();
 
   const targetIsVideo = isVideoPath(target?.path);
@@ -40,7 +42,11 @@ function FaceSwap({ providers, onResult }) {
     if (!target || !face) return;
     try {
       const result = await run(
-        postForm("/api/edit/faceswap", { target: target.path, source_face: face.path })
+        postForm("/api/edit/faceswap", {
+          target: target.path,
+          source_face: face.path,
+          restore_faces: restore,
+        })
       );
       onResult({ title: targetIsVideo ? "Face swap (video)" : "Face swap", ...result });
     } catch (e) {
@@ -71,6 +77,10 @@ function FaceSwap({ providers, onResult }) {
           {face && <img className="preview" src={fileUrl(face.path)} alt="face" />}
         </div>
       </div>
+      <label className="check">
+        <input type="checkbox" checked={restore} onChange={(e) => setRestore(e.target.checked)} />
+        Restore &amp; sharpen faces afterward (GFPGAN)
+      </label>
       <button className="primary" disabled={busy || !target || !face} onClick={submit}>
         {busy ? "Swapping…" : targetIsVideo ? "Swap face in video" : "Swap face"}
       </button>
@@ -155,6 +165,46 @@ function DressChange({ providers, onResult }) {
         {busy ? "Rendering…" : "Change outfit"}
       </button>
       <p className="hint">Runs on <b>{providers?.tryon?.provider}</b></p>
+      <ProgressBar state={state} />
+    </>
+  );
+}
+
+function RestoreFaces({ providers, onResult }) {
+  const [target, setTarget] = useState(null);
+  const { state, run, busy } = useJobRunner();
+  const targetIsVideo = isVideoPath(target?.path);
+
+  const submit = async () => {
+    if (!target) return;
+    try {
+      const result = await run(postForm("/api/edit/restore", { target: target.path }));
+      onResult({ title: targetIsVideo ? "Face restore (video)" : "Face restore", ...result });
+    } catch (e) {
+      /* shown in progress bar */
+    }
+  };
+
+  return (
+    <>
+      <p className="muted">
+        Sharpen and enhance faces in a photo or video with GFPGAN — great for
+        upscaling old or blurry portraits, not just swapped faces.
+      </p>
+      <Uploader accept="image/*,video/*" label="Upload a photo or video" onUploaded={setTarget} />
+      {target &&
+        (targetIsVideo ? (
+          <video className="preview" src={fileUrl(target.path)} controls />
+        ) : (
+          <img className="preview" src={fileUrl(target.path)} alt="target" />
+        ))}
+      <button className="primary" disabled={busy || !target} onClick={submit}>
+        {busy ? "Restoring…" : "Restore faces"}
+      </button>
+      <p className="hint">
+        Runs on <b>{providers?.restore?.provider}</b>
+        {targetIsVideo ? " · video restores every frame (local GFPGAN)" : ""}
+      </p>
       <ProgressBar state={state} />
     </>
   );

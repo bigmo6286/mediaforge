@@ -132,6 +132,16 @@ REPLICATE_FACESWAP_VIDEO_MODEL = os.environ.get(
 # Local inswapper .onnx (set INSWAPPER_MODEL to enable FACESWAP_PROVIDER=local).
 INSWAPPER_MODEL = os.environ.get("INSWAPPER_MODEL", "")
 
+# --- Face restoration (sharpen / enhance faces, e.g. after a swap) ----------
+# Local: GFPGAN (CPU-capable). Hosted: fal / replicate GFPGAN.
+RESTORE_PROVIDER = os.environ.get("RESTORE_PROVIDER", _default_provider()).lower()
+# Local GFPGAN weights — a URL auto-downloads on first use; override with a path.
+GFPGAN_MODEL = os.environ.get(
+    "GFPGAN_MODEL",
+    "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth")
+FAL_RESTORE_MODEL = os.environ.get("FAL_RESTORE_MODEL", "fal-ai/gfpgan")
+REPLICATE_RESTORE_MODEL = os.environ.get("REPLICATE_RESTORE_MODEL", "tencentarc/gfpgan")
+
 # --- Dress / outfit change (virtual try-on) --------------------------------
 # Hosted diffusion try-on (IDM-VTON etc.); local needs a big GPU.
 TRYON_PROVIDER = os.environ.get("TRYON_PROVIDER", _default_provider()).lower()
@@ -217,4 +227,6 @@ def provider_status() -> dict:
                      "fal": FAL_FACESWAP_MODEL, "replicate": REPLICATE_FACESWAP_MODEL},
         "tryon": {"provider": TRYON_PROVIDER,
                   "fal": FAL_TRYON_MODEL, "replicate": REPLICATE_TRYON_MODEL},
+        "restore": {"provider": RESTORE_PROVIDER,
+                    "fal": FAL_RESTORE_MODEL, "replicate": REPLICATE_RESTORE_MODEL},
     }

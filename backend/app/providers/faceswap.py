@@ -74,13 +74,23 @@ def _local(source_face: Path, target: Path, progress: JobProgress) -> dict:
     return {"output": _hosted.rel(dest), "provider": "local", "model": "inswapper"}
 
 
-def _local_video(source_face: Path, target_video: Path, progress: JobProgress) -> dict:
-    """Swap the source face into every frame of the video, then re-encode."""
+def _local_video(source_face: Path, target_video: Path, progress: JobProgress,
+                 restore: bool = False) -> dict:
+    """Swap the source face into every frame, optionally GFPGAN-restore, re-encode.
+
+    When `restore`, each frame is sharpened in the same pass (single decode).
+    """
     import shutil
 
     from .. import ffmpeg_tools
 
     cv2, app, swapper = _load_local()
+    restore_fn = None
+    if restore:
+        from . import restore as restore_mod
+        restore_mod._load_gfpgan()  # fail fast if GFPGAN missing
+        restore_fn = restore_mod.restore_array
+
     src_faces = app.get(cv2.imread(str(source_face)))
     if not src_faces:
         raise ProviderError("No face found in the source image.")
@@ -96,58 +106,83 @@ def _local_video(source_face: Path, target_video: Path, progress: JobProgress) -
         img = cv2.imread(str(fp))
         for face in app.get(img):  # swap any faces present in this frame
             img = swapper.get(img, face, src_face, paste_back=True)
+        if restore_fn is not None:
+            img = restore_fn(img)
         cv2.imwrite(str(fp), img)
         if i % 5 == 0:
-            progress.update(0.1 + 0.8 * (i / total), f"swapping frame {i+1}/{total}")
+            label = "swapping+restoring" if restore else "swapping"
+            progress.update(0.1 + 0.8 * (i / total), f"{label} frame {i+1}/{total}")
 
     out = ffmpeg_tools.assemble_video(frames_dir, fps, target_video, progress)
     shutil.rmtree(frames_dir, ignore_errors=True)
-    return {"output": _hosted.rel(out), "provider": "local", "model": "inswapper",
-            "frames": total}
+    return {"output": _hosted.rel(out), "provider": "local",
+            "model": "inswapper+GFPGAN" if restore else "inswapper", "frames": total}
 
 
-def swap_video(source_face: Path, target_video: Path, progress: JobProgress) -> dict:
-    """Swap `source_face` into every frame of `target_video`."""
+def swap_video(source_face: Path, target_video: Path, progress: JobProgress,
+               restore: bool = False) -> dict:
+    """Swap `source_face` into every frame of `target_video` (optional restore)."""
     provider = config.FACESWAP_PROVIDER
+    if provider == "local":
+        return _local_video(source_face, target_video, progress, restore=restore)
+
     if provider == "fal":
         payload = {"video_url": _img_uri(target_video),  # data-uri also works for video
                    "swap_image_url": _img_uri(source_face)}
         data = _hosted.fal_call(config.FAL_FACESWAP_VIDEO_MODEL, payload, progress)
         url = _hosted.extract_url(data, ("video", "videos", "output"))
-        if not url:
-            raise ProviderError(f"fal (video face-swap) returned no video: {data}")
-        dest = _hosted.out_path(".mp4", prefix="faceswap")
-        _hosted.download(url, dest, progress)
-        return {"output": _hosted.rel(dest), "provider": "fal",
-                "model": config.FAL_FACESWAP_VIDEO_MODEL}
-    if provider == "replicate":
+        model = config.FAL_FACESWAP_VIDEO_MODEL
+    elif provider == "replicate":
         inp = {"target_video": _img_uri(target_video), "swap_image": _img_uri(source_face)}
-        pred = _hosted.replicate_call(config.REPLICATE_FACESWAP_VIDEO_MODEL, inp, progress)
-        url = _hosted.extract_url(pred, ("video", "output"))
-        if not url:
-            raise ProviderError(f"replicate (video face-swap) returned no video: {pred}")
-        dest = _hosted.out_path(".mp4", prefix="faceswap")
-        _hosted.download(url, dest, progress)
-        return {"output": _hosted.rel(dest), "provider": "replicate",
-                "model": config.REPLICATE_FACESWAP_VIDEO_MODEL}
-    if provider == "local":
-        return _local_video(source_face, target_video, progress)
-    raise ProviderError(f"Unknown FACESWAP_PROVIDER: {provider}")
+        data = _hosted.replicate_call(config.REPLICATE_FACESWAP_VIDEO_MODEL, inp, progress)
+        url = _hosted.extract_url(data, ("video", "output"))
+        model = config.REPLICATE_FACESWAP_VIDEO_MODEL
+    else:
+        raise ProviderError(f"Unknown FACESWAP_PROVIDER: {provider}")
+
+    if not url:
+        raise ProviderError(f"{provider} (video face-swap) returned no video: {data}")
+    dest = _hosted.out_path(".mp4", prefix="faceswap")
+    _hosted.download(url, dest, progress)
+    result = {"output": _hosted.rel(dest), "provider": provider, "model": model}
+    if restore:  # sharpen the downloaded clip with a local GFPGAN video pass
+        from . import restore as restore_mod
+        progress.update(0.9, "sharpening faces (GFPGAN)")
+        result = restore_mod.restore_video(dest, progress)
+    return result
 
 
-def swap(source_face: Path, target: Path, progress: JobProgress) -> dict:
-    """Put the face from `source_face` onto the person in `target`."""
+def _maybe_restore_image(result: dict, restore: bool, progress: JobProgress) -> dict:
+    """Optionally run a GFPGAN restore pass over a swapped image result."""
+    if not restore:
+        return result
+    from . import restore as restore_mod
+    progress.update(0.85, "sharpening faces (GFPGAN)")
+    out_path = config.DATA_DIR / result["output"]
+    restored = restore_mod.restore_image(out_path, progress)
+    restored["swapped_from"] = result.get("model")
+    return restored
+
+
+def swap(source_face: Path, target: Path, progress: JobProgress,
+         restore: bool = False) -> dict:
+    """Put the face from `source_face` onto the person in `target`.
+
+    If `restore`, a GFPGAN pass sharpens the result afterward.
+    """
     provider = config.FACESWAP_PROVIDER
     if provider == "fal":
         payload = {"base_image_url": _img_uri(target),
                    "swap_image_url": _img_uri(source_face)}
-        return _finish_image(_hosted.fal_call(config.FAL_FACESWAP_MODEL, payload, progress),
-                             "fal", config.FAL_FACESWAP_MODEL, progress)
-    if provider == "replicate":
+        result = _finish_image(_hosted.fal_call(config.FAL_FACESWAP_MODEL, payload, progress),
+                               "fal", config.FAL_FACESWAP_MODEL, progress)
+    elif provider == "replicate":
         inp = {"input_image": _img_uri(target), "swap_image": _img_uri(source_face)}
-        return _finish_image(
+        result = _finish_image(
             _hosted.replicate_call(config.REPLICATE_FACESWAP_MODEL, inp, progress),
             "replicate", config.REPLICATE_FACESWAP_MODEL, progress)
-    if provider == "local":
-        return _local(source_face, target, progress)
-    raise ProviderError(f"Unknown FACESWAP_PROVIDER: {provider}")
+    elif provider == "local":
+        result = _local(source_face, target, progress)
+    else:
+        raise ProviderError(f"Unknown FACESWAP_PROVIDER: {provider}")
+    return _maybe_restore_image(result, restore, progress)
