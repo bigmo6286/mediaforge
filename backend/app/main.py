@@ -48,3 +48,19 @@ async def get_job(job_id: str) -> dict:
 @app.get("/api/jobs")
 async def list_jobs() -> dict:
     return {"jobs": manager.list()}
+
+
+# --- Serve the built frontend (single-server mode) -------------------------
+# When `frontend/dist` exists (after `npm run build`), the backend serves the
+# whole UI at the same origin — so http://127.0.0.1:8000 is the ONE URL to open,
+# with no separate Vite server and no CORS/proxy needed. Registered last so the
+# /api and /files routes above always take precedence.
+_DIST = config.ROOT_DIR / "frontend" / "dist"
+if _DIST.exists():
+    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="spa")
+else:
+    @app.get("/")
+    async def _no_ui() -> dict:
+        return {"status": "ok", "ui": "not built",
+                "hint": "Run `npm run build` in frontend/, or open the Vite dev "
+                        "server at http://localhost:5173"}

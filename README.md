@@ -37,36 +37,44 @@ doesn't change.
 
 ## Quick start
 
+**One command, one server, one URL** — the backend builds and serves the UI, so
+you open a single address: **http://127.0.0.1:8000**
+
 ```bash
-# 1. Backend
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # then add an API key (see below)
-uvicorn app.main:app --reload # http://127.0.0.1:8000
-
-# 2. Frontend (new terminal)
-cd frontend
-npm install
-npm run dev                    # http://localhost:5173
+./run.sh          # macOS / Linux
 ```
-
-Or use the launcher: `./run.sh` (starts both).
-
-### Windows
-
-Works on Windows too (paths, the bundled ffmpeg, and Piper are all
-cross-platform). Use the PowerShell scripts instead of the shell ones:
-
 ```powershell
-# from the project folder
-powershell -ExecutionPolicy Bypass -File run.ps1        # start backend + frontend
-powershell -ExecutionPolicy Bypass -File setup_gpu.ps1  # one-shot GPU setup
+powershell -ExecutionPolicy Bypass -File run.ps1   # Windows
 ```
 
-Manual equivalent: create the venv with `python -m venv .venv`, activate via
-`.\.venv\Scripts\Activate.ps1`, then the same `pip install` / `uvicorn` / `npm`
-commands as above. Requires Python 3.10+ and Node 18+.
+That installs deps, builds the frontend, and starts the server. When it prints
+`http://127.0.0.1:8000`, open that. **Not** `:5173` — that port only exists in
+dev mode below.
+
+### Manual
+
+```bash
+cd frontend && npm install && npm run build   # produces frontend/dist
+cd ../backend
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env                          # optional; or use the ⚙ Settings tab
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+Open **http://127.0.0.1:8000**. Requires Python 3.10+ and Node 18+.
+
+> **Getting a 404?** You opened the API-only mode without a built UI. Run
+> `npm run build` in `frontend/` (or just use `./run.sh` / `run.ps1`), then
+> reload http://127.0.0.1:8000.
+
+### Dev mode (hot reload, optional)
+
+For live-editing the frontend, run the two servers separately — Vite proxies
+`/api` to the backend:
+```bash
+cd backend && uvicorn app.main:app --reload          # :8000
+cd frontend && npm run dev                            # :5173  <- open this in dev
+```
 
 ## Enabling AI generation
 
