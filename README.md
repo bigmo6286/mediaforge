@@ -247,8 +247,10 @@ needed beyond a browser.
 
 Notes:
 - **Motion (text/image → video)** works out of the box on the free GPU.
-- **Talking Avatar** needs SadTalker set up separately — the easy route for
-  avatars is a small hosted credit (add a fal key in **⚙ Settings**).
+- **Talking Avatar**: run the notebook's optional **"Talking Avatar — set up
+  SadTalker"** cell to generate avatars free on Colab (heavier: clones SadTalker +
+  ~2 GB checkpoints, and can be picky). The simplest alternative is a small hosted
+  fal credit (add a key in **⚙ Settings**).
 - Free Colab sessions time out after a while / the GPU can be busy at peak times;
   just rerun the cells for a fresh session.
 
