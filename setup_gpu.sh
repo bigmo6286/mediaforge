@@ -7,7 +7,7 @@
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT/backend"
-CUDA="${TORCH_CUDA:-cu121}"
+CUDA="${TORCH_CUDA:-cu124}"
 
 echo "==> Checking for an NVIDIA GPU"
 if command -v nvidia-smi >/dev/null 2>&1; then
@@ -22,8 +22,18 @@ echo "==> Python venv + base deps"
 ./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/pip install -r requirements.txt
 
-echo "==> Installing CUDA PyTorch ($CUDA) - large download"
-./.venv/bin/pip install torch torchvision --index-url "https://download.pytorch.org/whl/$CUDA"
+PYVER=$(./.venv/bin/python -c "import sys;print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "==> Installing CUDA PyTorch (channel $CUDA) for Python $PYVER - large download"
+if ! ./.venv/bin/pip install torch torchvision --index-url "https://download.pytorch.org/whl/$CUDA"; then
+  echo ""
+  echo "ERROR: no CUDA PyTorch wheel for Python $PYVER on channel '$CUDA'."
+  echo "Fix it any one of these ways:"
+  echo "  1) Try another channel, then rerun:  TORCH_CUDA=cu126 ./setup_gpu.sh   (or cu128/cu121)"
+  echo "     Pick yours at https://pytorch.org/get-started/locally/"
+  echo "  2) Very new Python often lacks wheels - Python 3.11 or 3.12 has the widest support."
+  echo "  3) Or skip the GPU: the app runs on hosted providers (add a key) or CPU editing."
+  exit 1
+fi
 
 echo "==> Installing the model stack (diffusers, transformers, ...)"
 ./.venv/bin/pip install -r requirements-gpu.txt
