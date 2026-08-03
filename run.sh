@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 step() { printf "\n==> [%s/4] %s\n" "$1" "$2"; }
 
-echo "MediaForge setup — first run installs packages and can take a few minutes."
+echo "MediaForge setup - first run installs packages and can take a few minutes."
 
 # --- 1-2/4 frontend UI ---
 # The prebuilt UI (frontend/dist) ships in the repo, so Node is NOT needed just
@@ -35,19 +35,28 @@ echo "    installing Python packages (progress shown below)..."
 ./.venv/bin/pip install -r requirements.txt   # no -q: shows progress
 [ -f .env ] || cp .env.example .env
 
-# Optional local voice (Piper) — best effort, never blocks the app.
+# Optional local voice (Piper) - best effort, never blocks the app.
 echo "    installing local voice (Piper, optional)..."
 if ./.venv/bin/pip install -r requirements-voice.txt; then
   ls voices/*.onnx >/dev/null 2>&1 || \
     ./.venv/bin/python -m piper.download_voices en_US-amy-medium en_US-ryan-high --data-dir voices || true
 else
-  echo "    (Piper voice unavailable on this system — avatar will use hosted TTS.)"
+  echo "    (Piper voice unavailable on this system - avatar will use hosted TTS.)"
 fi
 
 # --- 4/4 start ---
 step 4 "Starting MediaForge..."
+
+# Free port 8000 if a previous MediaForge instance is still running on it.
+OLD_PID=$(ss -ltnp 2>/dev/null | grep ':8000 ' | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)
+if [ -n "$OLD_PID" ]; then
+  echo "    stopping a previous server on port 8000 (PID $OLD_PID)..."
+  kill "$OLD_PID" 2>/dev/null || true
+  sleep 1
+fi
+
 echo ""
-echo "  ✓ Ready — open  http://127.0.0.1:8000"
+echo "  Ready - open  http://127.0.0.1:8000"
 echo "  (Ctrl+C to stop)"
 echo ""
-exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+exec ./.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000

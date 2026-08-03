@@ -80,6 +80,20 @@ if ($LASTEXITCODE -eq 0) {
 
 # --- 4/4 start ---
 Step 4 "Starting MediaForge..."
+
+# Free port 8000 if a previous MediaForge instance is still running on it.
+$busy = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+foreach ($conn in $busy) {
+    $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+    if ($proc -and $proc.ProcessName -match "python|uvicorn") {
+        Write-Host "    stopping a previous MediaForge on port 8000 (PID $($proc.Id))..." -ForegroundColor Yellow
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+    } elseif ($proc) {
+        Fail "Port 8000 is in use by '$($proc.ProcessName)' (PID $($proc.Id)). Close it (or reboot), then rerun."
+    }
+}
+
 Write-Host ""
 Write-Host "  Ready - open  http://127.0.0.1:8000" -ForegroundColor Green
 Write-Host "  (Ctrl+C to stop)"
