@@ -4,23 +4,32 @@
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# --- frontend: install + build (produces frontend/dist the backend serves) ---
-cd "$ROOT/frontend"
-[ -d node_modules ] || npm install
-[ -d dist ] || npm run build
+step() { printf "\n==> [%s/4] %s\n" "$1" "$2"; }
 
-# --- backend: venv + deps ---
+echo "MediaForge setup — first run installs packages and can take a few minutes."
+
+# --- 1/4 frontend deps ---
+cd "$ROOT/frontend"
+step 1 "Installing frontend packages (npm)..."
+if [ -d node_modules ]; then echo "    already installed, skipping."; else npm install; fi
+
+# --- 2/4 build UI ---
+step 2 "Building the web UI..."
+npm run build
+
+# --- 3/4 backend deps ---
 cd "$ROOT/backend"
-if [ ! -d .venv ]; then
-  python3 -m venv .venv
-  ./.venv/bin/pip install -q -r requirements.txt
-fi
+step 3 "Setting up Python environment (pip)..."
+[ -d .venv ] || python3 -m venv .venv
+echo "    installing Python packages (progress shown below)..."
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/pip install -r requirements.txt   # no -q: shows progress
 [ -f .env ] || cp .env.example .env
 
+# --- 4/4 start ---
+step 4 "Starting MediaForge..."
 echo ""
-echo "  MediaForge is running at  ->  http://127.0.0.1:8000"
+echo "  ✓ Ready — open  http://127.0.0.1:8000"
 echo "  (Ctrl+C to stop)"
 echo ""
-
-# One server serves both the UI and the API.
 exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000

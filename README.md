@@ -5,16 +5,18 @@ talking presenter video (UGC ads, tutorials, virtual presenters), generate
 motion clips with **Wan**, and do fast local video/image edits — all from a
 clean web UI.
 
+One server on **http://127.0.0.1:8000** serves both the React UI and the API:
+
 ```
-┌────────────┐     HTTP/JSON      ┌──────────────────────────────┐
-│  React UI  │  ───────────────►  │  FastAPI backend             │
-│ (Vite:5173)│  ◄───────────────  │  jobs · ffmpeg · providers   │
-└────────────┘                    └──────────────┬───────────────┘
-                                                 │
-                    local (CPU)  ◄───────────────┼───────────────►  hosted GPU
-                    ffmpeg edits, image ops,     │   Wan / SadTalker / Kokoro
-                    Piper TTS                     │   via fal.ai or replicate
-                                       local GPU (optional): diffusers WanPipeline
+                 http://127.0.0.1:8000
+┌──────────────────────────────────────────────────────┐
+│  FastAPI backend  (serves the built React UI + API)   │
+│  jobs · ffmpeg · providers                            │
+└──────────────────────────┬───────────────────────────┘
+                           │
+      local (CPU)  ◄───────┼───────►  hosted GPU              local GPU (auto)
+      ffmpeg edits,        │   Wan / LTX / SadTalker / Kokoro   diffusers
+      image ops, Piper TTS │   via fal.ai or replicate          Wan/LTX pipelines
 ```
 
 ## What it does
@@ -51,7 +53,46 @@ That installs deps, builds the frontend, and starts the server. When it prints
 `http://127.0.0.1:8000`, open that. **Not** `:5173` — that port only exists in
 dev mode below.
 
-### Manual
+### Windows — step by step
+
+1. **Install the prerequisites** (once):
+   - [Python 3.10+](https://www.python.org/downloads/windows/) — at the start of
+     the installer, tick **“Add python.exe to PATH”**.
+   - [Node.js 18+ (LTS)](https://nodejs.org/en/download) — the default installer
+     is fine.
+   - [Git for Windows](https://git-scm.com/download/win) (to clone the repo).
+   - Reopen PowerShell afterward so the new PATH takes effect.
+
+2. **Get the code** (in PowerShell):
+   ```powershell
+   git clone https://github.com/bigmo6286/mediaforge.git
+   cd mediaforge
+   ```
+
+3. **Run it** (installs deps, builds the UI, starts the server, opens the browser):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File run.ps1
+   ```
+   Leave that window open. When it says `http://127.0.0.1:8000`, the app is up.
+
+4. **Add your API key** in the app’s ⚙ **Settings** tab (or skip — local voice and
+   all editing work with no key). To stop the app, press **Ctrl+C** in the window.
+
+> First run takes a few minutes (it installs Python + Node packages). Later runs
+> start in seconds. If PowerShell blocks the script, the `-ExecutionPolicy Bypass`
+> in the command above already handles it — run the whole line as shown.
+
+Manual steps on Windows, if you'd rather not use the script:
+```powershell
+cd frontend; npm install; npm run build
+cd ..\backend
+python -m venv .venv
+.\.venv\Scripts\pip.exe install -r requirements.txt
+.\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
+# then open http://127.0.0.1:8000
+```
+
+### Manual (macOS / Linux)
 
 ```bash
 cd frontend && npm install && npm run build   # produces frontend/dist
@@ -100,8 +141,12 @@ REPLICATE_API_TOKEN=your_token # https://replicate.com/account/api-tokens
 
 **Local GPU** (a machine with CUDA) — *just works, no keys*
 ```bash
-./setup_gpu.sh     # installs base + torch/diffusers, downloads voices
-./run.sh           # UI at http://localhost:5173
+./setup_gpu.sh     # macOS / Linux: installs base + torch/diffusers, downloads voices
+./run.sh           # then open http://127.0.0.1:8000
+```
+```powershell
+powershell -ExecutionPolicy Bypass -File setup_gpu.ps1   # Windows GPU setup
+powershell -ExecutionPolicy Bypass -File run.ps1
 ```
 On startup MediaForge calls `torch.cuda.is_available()` and, if a GPU is found,
 **auto-defaults every model to `local`** — Wan and LTX-Video run on your card via
