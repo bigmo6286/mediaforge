@@ -2,8 +2,9 @@
 
 A local, open-source AI **video & image studio**. Turn a single photo into a
 talking presenter video (UGC ads, tutorials, virtual presenters), generate
-motion clips with **Wan**, and do fast local video/image edits — all from a
-clean web UI.
+motion clips with **Wan**, **cut long videos into captioned vertical shorts**
+(with Nigerian/African-language transcription), and do fast local video/image
+edits — all from a clean web UI.
 
 One server on **http://127.0.0.1:8000** serves both the React UI and the API:
 
@@ -24,6 +25,7 @@ One server on **http://127.0.0.1:8000** serves both the React UI and the API:
 | Tab | Feature | Runs on |
 |-----|---------|---------|
 | 🎤 **Talking Avatar** | 1 photo + voice → lip-synced presenter (SadTalker/Hallo/Wan2.2-S2V). Voice from a typed **script** (TTS) or an uploaded recording. | GPU (hosted or local); TTS can run locally on CPU via Piper |
+| ✂️ **Shorts** | Upload a long video → **vertical 9:16 shorts with burned-in captions**. Speech is transcribed on the GPU — **Whisper** (auto-detect, many African languages) or **Meta MMS** (1000+ languages incl. **Igbo** & **Nigerian Pidgin**) — and the transcript is split into clips at sentence boundaries. Built for **Nigerian & African-language** content. Clip length, language/engine, 9:16 reframe and captions are all toggleable. | GPU (local/Colab); CPU works but slow |
 | ✨ **Motion** | Text→Video / Image→Video with **LTX-Video** (free-GPU friendly) or **Wan**. A duration slider goes to 30s — clips longer than one model window are built by **auto-chaining** segments (last frame seeds the next) and trimmed to length. | GPU (hosted or local) |
 | 🎭 **Face & Wardrobe** | **Face swap** on a **photo or video** (every frame; InsightFace), an optional **GFPGAN face-restore pass** to sharpen results, standalone **Restore faces** for any blurry photo/video, and **Dress change** (virtual try-on, IDM-VTON) | face swap/restore: CPU/GPU · try-on: GPU (hosted) |
 | 🎬 **Video Edit** | Trim, crop, resize, speed, → GIF, convert, extract frames, extract audio | **CPU, local** |
@@ -217,6 +219,36 @@ Local motion + TTS work without it; only the avatar tab needs SadTalker locally.
 - **Hosted:** set `TTS_PROVIDER=fal` (or `replicate`) to use the open **Kokoro**
   model on a GPU instead.
 
+### Shorts maker — languages & engines
+
+The **✂️ Shorts** tab turns an uploaded video into captioned vertical clips.
+Transcription runs on the GPU with a choice of engine, picked straight from the
+language dropdown:
+
+- **Whisper** (`faster-whisper`, default `large-v3`) — auto-detects the language
+  and covers many African languages (Yoruba, Hausa, Swahili, Amharic, Shona,
+  Somali, Afrikaans). Accurate on those, but **weak on Igbo & Nigerian Pidgin**
+  (little training data).
+- **Meta MMS** (`facebook/mms-1b-all`) — 1000+ languages including **Igbo (ibo)**
+  and **Nigerian Pidgin (pcm)**. Pick any **(MMS)** entry in the dropdown. MMS
+  needs an explicit language (no auto-detect) and downloads ~3 GB on first use,
+  then caches.
+
+The transcript is split into `clip_seconds`-long windows at sentence boundaries,
+each clip is centre-cropped to 9:16, and captions are burned in as styled
+subtitles. Tune via env (or leave the defaults; the UI overrides per request):
+
+```
+WHISPER_MODEL=large-v3          # or medium/small for speed, or a fine-tuned model
+MMS_MODEL=facebook/mms-1b-all
+SHORTS_ENGINE=whisper           # per-request choice in the UI overrides this
+SHORTS_LANGUAGE=                # force a Whisper language code, "" = auto-detect
+```
+
+Colab installs `faster-whisper` for you (cell 2); MMS reuses the `transformers`
+stack that's already installed. For a local (non-Colab) run: `pip install
+faster-whisper` (and MMS works via the existing `transformers`).
+
 ### Optional local extras
 ```
 # background removal (image tab), CPU-friendly:
@@ -251,6 +283,9 @@ Notes:
   SadTalker"** cell to generate avatars free on Colab (heavier: clones SadTalker +
   ~2 GB checkpoints, and can be picky). The simplest alternative is a small hosted
   fal credit (add a key in **⚙ Settings**).
+- **Shorts**: works on the free GPU. Cell 2 installs `faster-whisper`; the first
+  transcription downloads the Whisper model, and choosing an **(MMS)** language
+  downloads the MMS model (~3 GB) once. Whisper and MMS both run on the T4.
 - Free Colab sessions time out after a while / the GPU can be busy at peak times;
   just rerun the cells for a fresh session.
 
