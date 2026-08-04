@@ -180,7 +180,11 @@ def _local_sadtalker(image_path: Path, audio_path: Path, params: dict,
         "--driven_audio", str(audio_path),
         "--result_dir", str(results_dir),
         "--still", "--preprocess", "full",
+        "--size", str(config.SADTALKER_SIZE),   # 512 = sharper face than 256
     ]
+    if config.SADTALKER_ENHANCER:
+        # GFPGAN face restoration — the single biggest realism win.
+        cmd += ["--enhancer", config.SADTALKER_ENHANCER]
     proc = subprocess.run(cmd, cwd=str(st_dir), capture_output=True, text=True)
     if proc.returncode != 0:
         raise ProviderError(f"SadTalker failed:\n{(proc.stderr or '')[-400:]}")

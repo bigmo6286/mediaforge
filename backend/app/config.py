@@ -144,6 +144,11 @@ REPLICATE_AVATAR_AUDIO_FIELD = os.environ.get("REPLICATE_AVATAR_AUDIO_FIELD", "d
 # https://github.com/OpenTalker/SadTalker  — set SADTALKER_DIR to the clone.
 SADTALKER_DIR = os.environ.get("SADTALKER_DIR", "")
 SADTALKER_PYTHON = os.environ.get("SADTALKER_PYTHON", "python")
+# Quality knobs. Default to the 512px model + GFPGAN face restoration — the
+# bare 256px/no-enhancer output looks plasticky. Set SADTALKER_ENHANCER="" to
+# disable the enhancer (faster), or SADTALKER_SIZE=256 for the smaller model.
+SADTALKER_SIZE = os.environ.get("SADTALKER_SIZE", "512")
+SADTALKER_ENHANCER = os.environ.get("SADTALKER_ENHANCER", "gfpgan")
 
 # --- Face swap (change the face in a photo) --------------------------------
 # Local: InsightFace inswapper (CPU-capable, light). Hosted: fal / replicate.
