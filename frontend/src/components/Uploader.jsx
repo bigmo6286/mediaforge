@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { uploadFile } from "../api.js";
+import { uploadFile, maybeDownscaleImage } from "../api.js";
 
 // Drag/drop or click-to-pick a file, uploads it, and reports {path,name,info}
 // back to the parent via onUploaded.
@@ -14,7 +14,8 @@ export default function Uploader({ accept, label, onUploaded }) {
     setBusy(true);
     setErr(null);
     try {
-      const res = await uploadFile(file);
+      const prepared = await maybeDownscaleImage(file);
+      const res = await uploadFile(prepared);
       setName(res.name);
       onUploaded(res);
     } catch (e) {
