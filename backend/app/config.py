@@ -150,6 +150,15 @@ SADTALKER_PYTHON = os.environ.get("SADTALKER_PYTHON", "python")
 SADTALKER_SIZE = os.environ.get("SADTALKER_SIZE", "512")
 SADTALKER_ENHANCER = os.environ.get("SADTALKER_ENHANCER", "gfpgan")
 
+# --- Shorts maker (video -> captioned vertical clips) ----------------------
+# Transcription model for the Shorts feature (faster-whisper / CTranslate2).
+# large-v3 covers many African languages (Yoruba, Hausa, Swahili, Amharic,
+# Shona, Somali, Afrikaans); Igbo / Nigerian Pidgin are weak. Use a smaller
+# model (e.g. "medium", "small") for speed, or swap in a fine-tuned one.
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3")
+# Force a transcription language (ISO code, e.g. "yo", "ha", "sw"); "" = auto.
+SHORTS_LANGUAGE = os.environ.get("SHORTS_LANGUAGE", "")
+
 # --- Face swap (change the face in a photo) --------------------------------
 # Local: InsightFace inswapper (CPU-capable, light). Hosted: fal / replicate.
 FACESWAP_PROVIDER = os.environ.get("FACESWAP_PROVIDER", _default_provider(heavy=False)).lower()

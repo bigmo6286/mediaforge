@@ -6,6 +6,7 @@ from fastapi import APIRouter, Form, HTTPException
 from .. import config
 from ..jobs import manager
 from ..providers import avatar, motion
+from ..providers import shorts as shorts_maker
 from .media import _resolve
 
 router = APIRouter()
@@ -86,6 +87,25 @@ async def talking_avatar(
         )
     else:
         raise HTTPException(400, "Provide either an audio file or a script.")
+    return {"job_id": job.id}
+
+
+@router.post("/shorts")
+async def shorts(
+    path: str = Form(...),               # relative path of the uploaded video
+    clip_seconds: float = Form(45),      # target length of each short
+    max_seconds: float = Form(90),       # hard cap per short
+    vertical: bool = Form(True),         # reframe to 9:16
+    captions: bool = Form(True),         # burn in captions
+    language: str = Form(""),            # ISO code, "" = auto-detect
+    max_shorts: int = Form(0),           # 0 = as many as the video yields
+) -> dict:
+    src = _resolve(path)
+    params = {"clip_seconds": clip_seconds, "max_seconds": max_seconds,
+              "vertical": vertical, "captions": captions,
+              "language": language, "max_shorts": max_shorts}
+    job = manager.submit("generate.shorts",
+                         lambda pr: shorts_maker.make_shorts(src, params, pr))
     return {"job_id": job.id}
 
 

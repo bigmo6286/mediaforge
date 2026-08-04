@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getProviders } from "./api.js";
 import AvatarTab from "./tabs/AvatarTab.jsx";
 import GenerateTab from "./tabs/GenerateTab.jsx";
+import ShortsTab from "./tabs/ShortsTab.jsx";
 import StyleTab from "./tabs/StyleTab.jsx";
 import VideoTab from "./tabs/VideoTab.jsx";
 import ImageTab from "./tabs/ImageTab.jsx";
@@ -10,6 +11,7 @@ import Gallery from "./components/Gallery.jsx";
 
 const TABS = [
   { id: "avatar", label: "🎤 Talking Avatar" },
+  { id: "shorts", label: "✂️ Shorts" },
   { id: "generate", label: "✨ Motion (Wan)" },
   { id: "style", label: "🎭 Face & Wardrobe" },
   { id: "video", label: "🎬 Video Edit" },
@@ -81,6 +83,9 @@ export default function App() {
         <section className="panel">
           {tab === "avatar" && (
             <AvatarTab providers={providers} onResult={addResult} />
+          )}
+          {tab === "shorts" && (
+            <ShortsTab providers={providers} onResult={addResult} />
           )}
           {tab === "generate" && (
             <GenerateTab providers={providers} onResult={addResult} />
