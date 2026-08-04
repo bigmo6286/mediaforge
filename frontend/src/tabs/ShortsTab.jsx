@@ -4,19 +4,27 @@ import Uploader from "../components/Uploader.jsx";
 import ProgressBar from "../components/ProgressBar.jsx";
 import useJobRunner from "../components/useJobRunner.js";
 
-// Languages faster-whisper (large-v3) supports well enough to force. "auto"
-// lets Whisper detect. Igbo / Nigerian Pidgin aren't reliably supported by
-// vanilla Whisper — see the hint below.
+// Each option carries its ASR engine + language code. Whisper (large-v3) auto-
+// detects and covers many languages; MMS (Meta, 1000+ langs, ISO-639-3 codes)
+// is the better choice for Igbo / Nigerian Pidgin, which vanilla Whisper botches.
+// Shape: [value, label, engine, code].
 const LANGUAGES = [
-  ["", "Auto-detect"],
-  ["en", "English"],
-  ["yo", "Yoruba"],
-  ["ha", "Hausa"],
-  ["sw", "Swahili"],
-  ["am", "Amharic"],
-  ["so", "Somali"],
-  ["sn", "Shona"],
-  ["af", "Afrikaans"],
+  ["auto", "Auto-detect (Whisper)", "whisper", ""],
+  ["w:en", "English (Whisper)", "whisper", "en"],
+  ["w:yo", "Yoruba (Whisper)", "whisper", "yo"],
+  ["w:ha", "Hausa (Whisper)", "whisper", "ha"],
+  ["w:sw", "Swahili (Whisper)", "whisper", "sw"],
+  ["w:am", "Amharic (Whisper)", "whisper", "am"],
+  ["w:so", "Somali (Whisper)", "whisper", "so"],
+  ["w:sn", "Shona (Whisper)", "whisper", "sn"],
+  ["w:af", "Afrikaans (Whisper)", "whisper", "af"],
+  // MMS — best for Nigerian languages Whisper struggles with.
+  ["m:ibo", "Igbo (MMS)", "mms", "ibo"],
+  ["m:pcm", "Nigerian Pidgin (MMS)", "mms", "pcm"],
+  ["m:yor", "Yoruba (MMS)", "mms", "yor"],
+  ["m:hau", "Hausa (MMS)", "mms", "hau"],
+  ["m:swh", "Swahili (MMS)", "mms", "swh"],
+  ["m:eng", "English (MMS)", "mms", "eng"],
 ];
 
 // Turn a long uploaded video into captioned vertical shorts. Main use:
@@ -24,7 +32,7 @@ const LANGUAGES = [
 export default function ShortsTab({ providers, onResult }) {
   const [video, setVideo] = useState(null);
   const [clipSeconds, setClipSeconds] = useState(45);
-  const [language, setLanguage] = useState("");
+  const [langValue, setLangValue] = useState("auto");
   const [vertical, setVertical] = useState(true);
   const [captions, setCaptions] = useState(true);
   const [maxShorts, setMaxShorts] = useState(0);
@@ -34,6 +42,8 @@ export default function ShortsTab({ providers, onResult }) {
   const submit = async () => {
     if (!video) return;
     setSummary(null);
+    const opt = LANGUAGES.find((l) => l[0] === langValue) || LANGUAGES[0];
+    const [, , engine, code] = opt;
     try {
       const res = await run(
         postForm("/api/generate/shorts", {
@@ -41,7 +51,8 @@ export default function ShortsTab({ providers, onResult }) {
           clip_seconds: clipSeconds,
           vertical,
           captions,
-          language,
+          language: code,
+          engine,
           max_shorts: maxShorts,
         })
       );
@@ -75,18 +86,18 @@ export default function ShortsTab({ providers, onResult }) {
 
       <div className="field">
         <label>2 · Spoken language</label>
-        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-          {LANGUAGES.map(([id, label]) => (
-            <option key={id || "auto"} value={id}>
+        <select value={langValue} onChange={(e) => setLangValue(e.target.value)}>
+          {LANGUAGES.map(([value, label]) => (
+            <option key={value} value={value}>
               {label}
             </option>
           ))}
         </select>
         <p className="hint">
-          Forcing the language is more accurate than auto-detect. Whisper handles
-          Yoruba, Hausa, Swahili &amp; more, but <b>Igbo and Nigerian Pidgin are
-          weak</b> — for those, set <code>WHISPER_MODEL</code> to a fine-tuned
-          model or Meta MMS.
+          Forcing the language beats auto-detect. Whisper handles Yoruba, Hausa,
+          Swahili &amp; more; for <b>Igbo and Nigerian Pidgin</b> pick an
+          <b> (MMS)</b> option — Meta MMS covers those far better. First MMS run
+          downloads the model (~3 GB) and the language adapter.
         </p>
       </div>
 

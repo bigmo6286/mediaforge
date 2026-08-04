@@ -98,12 +98,13 @@ async def shorts(
     vertical: bool = Form(True),         # reframe to 9:16
     captions: bool = Form(True),         # burn in captions
     language: str = Form(""),            # ISO code, "" = auto-detect
+    engine: str = Form("whisper"),       # "whisper" or "mms"
     max_shorts: int = Form(0),           # 0 = as many as the video yields
 ) -> dict:
     src = _resolve(path)
     params = {"clip_seconds": clip_seconds, "max_seconds": max_seconds,
               "vertical": vertical, "captions": captions,
-              "language": language, "max_shorts": max_shorts}
+              "language": language, "engine": engine, "max_shorts": max_shorts}
     job = manager.submit("generate.shorts",
                          lambda pr: shorts_maker.make_shorts(src, params, pr))
     return {"job_id": job.id}

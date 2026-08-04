@@ -158,6 +158,11 @@ SADTALKER_ENHANCER = os.environ.get("SADTALKER_ENHANCER", "gfpgan")
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3")
 # Force a transcription language (ISO code, e.g. "yo", "ha", "sw"); "" = auto.
 SHORTS_LANGUAGE = os.environ.get("SHORTS_LANGUAGE", "")
+# Default ASR engine: "whisper" (auto-detect, most languages) or "mms" (Meta
+# MMS, 1000+ langs incl. Igbo/Pidgin, needs an explicit ISO-639-3 language).
+# Normally chosen per-request from the UI; this is the fallback.
+SHORTS_ENGINE = os.environ.get("SHORTS_ENGINE", "whisper")
+MMS_MODEL = os.environ.get("MMS_MODEL", "facebook/mms-1b-all")
 
 # --- Face swap (change the face in a photo) --------------------------------
 # Local: InsightFace inswapper (CPU-capable, light). Hosted: fal / replicate.

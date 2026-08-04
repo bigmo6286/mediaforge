@@ -82,6 +82,101 @@ def _transcribe(audio: Path, language: str, progress: JobProgress):
     return segs, info.language
 
 
+# --- MMS (Meta Massively Multilingual Speech) -------------------------------
+# Covers 1000+ languages incl. Igbo (ibo), Nigerian Pidgin (pcm), Yoruba (yor),
+# Hausa (hau) — the ones vanilla Whisper handles poorly. MMS is a CTC model, so
+# it needs an explicit language and gives word timestamps from frame offsets.
+_MMS = None            # (model, processor)
+_MMS_LANG: str | None = None
+
+
+def _get_mms(lang: str):
+    global _MMS, _MMS_LANG
+    try:
+        import torch  # noqa: F401
+        from transformers import AutoProcessor, Wav2Vec2ForCTC
+    except ImportError as exc:  # pragma: no cover
+        raise ProviderError(
+            "MMS needs transformers + torch. Install:\n"
+            "  pip install transformers torch") from exc
+    if _MMS is None:
+        processor = AutoProcessor.from_pretrained(config.MMS_MODEL)
+        model = Wav2Vec2ForCTC.from_pretrained(config.MMS_MODEL)
+        if config.HAS_GPU:
+            model.to("cuda")
+        _MMS = (model, processor)
+    model, processor = _MMS
+    if _MMS_LANG != lang:
+        # Swap in the per-language adapter (downloads a few MB on first use).
+        processor.tokenizer.set_target_lang(lang)
+        model.load_adapter(lang)
+        _MMS_LANG = lang
+    return model, processor
+
+
+def _read_wav16k(path: Path):
+    import wave
+
+    import numpy as np
+    with wave.open(str(path), "rb") as wf:
+        sr = wf.getframerate()
+        raw = wf.readframes(wf.getnframes())
+    if sr != 16000:
+        raise ProviderError(f"Expected 16 kHz audio for MMS, got {sr} Hz.")
+    data = np.frombuffer(raw, dtype=np.int16).astype("float32") / 32768.0
+    return data, sr
+
+
+def _words_to_segments(words: list[dict], max_gap: float = 0.6,
+                       max_dur: float = 8.0) -> list[dict]:
+    """Group a flat word stream (from CTC) into segments at speech pauses."""
+    def mk(ws):
+        return {"start": ws[0]["start"], "end": ws[-1]["end"],
+                "text": "".join(w["word"] for w in ws).strip(), "words": ws}
+    segs, cur = [], []
+    for w in words:
+        if cur and (w["start"] - cur[-1]["end"] > max_gap
+                    or w["end"] - cur[0]["start"] > max_dur):
+            segs.append(mk(cur))
+            cur = []
+        cur.append(w)
+    if cur:
+        segs.append(mk(cur))
+    return [s for s in segs if s["text"]]
+
+
+def _transcribe_mms(audio: Path, language: str, progress: JobProgress):
+    """Transcribe with MMS. `language` is an ISO-639-3 code (e.g. 'ibo', 'pcm')."""
+    import torch
+    lang = language or "eng"
+    model, processor = _get_mms(lang)
+    device = "cuda" if config.HAS_GPU else "cpu"
+    data, sr = _read_wav16k(audio)
+    tpf = model.config.inputs_to_logits_ratio / sr   # seconds per output frame
+    chunk = 20 * sr                                   # 20s windows (CTC memory)
+    words: list[dict] = []
+    total = max(1, len(data))
+    for off in range(0, len(data), chunk):
+        seg = data[off:off + chunk]
+        if len(seg) < int(0.2 * sr):
+            continue
+        input_values = processor(seg, sampling_rate=sr,
+                                 return_tensors="pt").input_values.to(device)
+        with torch.no_grad():
+            logits = model(input_values).logits
+        ids = torch.argmax(logits, dim=-1)
+        decoded = processor.batch_decode(ids, output_word_offsets=True)
+        base = off / sr
+        for wo in decoded["word_offsets"][0]:
+            words.append({
+                "start": base + wo["start_offset"] * tpf,
+                "end": base + wo["end_offset"] * tpf,
+                "word": " " + wo["word"],
+            })
+        progress.update(0.12 + 0.08 * (off / total), "transcribing (MMS)")
+    return _words_to_segments(words), lang
+
+
 # --- Segment the transcript into shorts -------------------------------------
 def _segment(segs: list[dict], target: float, max_len: float) -> list[tuple]:
     """Group consecutive transcript segments into ~target-second windows,
@@ -196,13 +291,18 @@ def make_shorts(video_path: Path, params: dict, progress: JobProgress) -> dict:
     vertical = bool(params.get("vertical", True))
     captions = bool(params.get("captions", True))
     language = str(params.get("language", "") or config.SHORTS_LANGUAGE)
+    engine = str(params.get("engine", "") or config.SHORTS_ENGINE).lower()
     max_shorts = int(params.get("max_shorts", 0) or 0)
 
     progress.update(0.05, "extracting audio")
     audio = _extract_audio(video_path, progress)
 
-    progress.update(0.12, f"transcribing with Whisper ({config.WHISPER_MODEL})")
-    segs, detected = _transcribe(audio, language, progress)
+    if engine == "mms":
+        progress.update(0.12, f"transcribing with MMS ({language or 'eng'})")
+        segs, detected = _transcribe_mms(audio, language, progress)
+    else:
+        progress.update(0.12, f"transcribing with Whisper ({config.WHISPER_MODEL})")
+        segs, detected = _transcribe(audio, language, progress)
     if not segs:
         raise ProviderError(
             "No speech was detected in the video (or the language wasn't "
