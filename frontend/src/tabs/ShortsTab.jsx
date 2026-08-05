@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { postForm } from "../api.js";
+import { postForm, importServerFile } from "../api.js";
 import Uploader from "../components/Uploader.jsx";
 import ProgressBar from "../components/ProgressBar.jsx";
 import useJobRunner from "../components/useJobRunner.js";
@@ -31,6 +31,9 @@ const LANGUAGES = [
 // Nigerian / African-language content.
 export default function ShortsTab({ providers, onResult }) {
   const [video, setVideo] = useState(null);
+  const [serverPath, setServerPath] = useState("");
+  const [importErr, setImportErr] = useState(null);
+  const [importing, setImporting] = useState(false);
   const [clipSeconds, setClipSeconds] = useState(45);
   const [langValue, setLangValue] = useState("auto");
   const [vertical, setVertical] = useState(true);
@@ -38,6 +41,21 @@ export default function ShortsTab({ providers, onResult }) {
   const [maxShorts, setMaxShorts] = useState(0);
   const [summary, setSummary] = useState(null);
   const { state, run, busy } = useJobRunner();
+
+  const useServerFile = async () => {
+    const p = serverPath.trim();
+    if (!p) return;
+    setImporting(true);
+    setImportErr(null);
+    try {
+      const res = await importServerFile(p);
+      setVideo(res);
+    } catch (e) {
+      setImportErr(e.message);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const submit = async () => {
     if (!video) return;
@@ -81,6 +99,29 @@ export default function ShortsTab({ providers, onResult }) {
       <div className="field">
         <label>1 · Source video</label>
         <Uploader accept="video/*" label="Upload a video (mp4/mov/webm)" onUploaded={setVideo} />
+
+        <div className="muted" style={{ margin: "10px 0 6px", fontSize: 13 }}>
+          — or, for a <b>large / multi-GB video</b>, point to a file already on
+          the server —
+        </div>
+        <div className="row" style={{ alignItems: "stretch" }}>
+          <input
+            type="text"
+            value={serverPath}
+            placeholder="/content/drive/MyDrive/MediaForge/uploads/my-video.mp4"
+            onChange={(e) => setServerPath(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button className="ghost" disabled={importing || !serverPath.trim()} onClick={useServerFile}>
+            {importing ? "Loading…" : "Use file"}
+          </button>
+        </div>
+        <p className="hint">
+          Browser upload can't reliably move a multi-GB file through Colab.
+          Instead put the video on your <b>mounted Google Drive</b> (run notebook
+          cell 3) or anywhere on the Colab VM, then paste its full path here.
+        </p>
+        {importErr && <div className="err">{importErr}</div>}
         {video && <div className="ok">✓ {video.name}</div>}
       </div>
 

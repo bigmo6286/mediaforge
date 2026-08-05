@@ -114,6 +114,12 @@ export async function postForm(url, fields) {
   return parseJson(r, "request");
 }
 
+// Use a file already sitting on the server (e.g. a multi-GB video on the
+// mounted Google Drive) instead of uploading it through the browser.
+export async function importServerFile(path) {
+  return postForm("/api/import", { path });
+}
+
 export async function getJob(id) {
   const r = await fetch(`/api/jobs/${id}`);
   return r.json();

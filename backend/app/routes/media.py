@@ -30,10 +30,22 @@ def _save_upload(upload: UploadFile) -> Path:
 
 
 def _resolve(rel_or_name: str) -> Path:
-    """Resolve a client-supplied path (relative to data dir) safely."""
-    p = (config.DATA_DIR / rel_or_name).resolve()
-    if config.DATA_DIR.resolve() not in p.parents and p != config.DATA_DIR:
-        raise HTTPException(400, "Invalid path")
+    """Resolve a client-supplied path to a file on this machine.
+
+    Relative paths are taken under DATA_DIR (and may not escape it). Absolute
+    paths are allowed as-is so the user can point at a big file they dropped on
+    the Colab VM directly — e.g. a multi-GB video on their mounted Google Drive
+    that's far too large to push through the browser upload. This is a
+    single-user app running on the user's own machine, so reading their own
+    files by absolute path is fine.
+    """
+    raw = Path(rel_or_name)
+    if raw.is_absolute():
+        p = raw.resolve()
+    else:
+        p = (config.DATA_DIR / rel_or_name).resolve()
+        if config.DATA_DIR.resolve() not in p.parents and p != config.DATA_DIR:
+            raise HTTPException(400, "Invalid path")
     if not p.exists():
         raise HTTPException(404, f"File not found: {rel_or_name}")
     return p
@@ -94,6 +106,28 @@ async def upload_finish(upload_id: str = Form(...),
     part.replace(dest)  # atomic rename within the same filesystem
     rel = str(dest.relative_to(config.DATA_DIR)).replace("\\", "/")
     return {"path": rel, "name": dest.name, "info": _probe_info(dest)}
+
+
+@router.post("/import")
+async def import_file(path: str = Form(...)) -> dict:
+    """Use a file that's already on the server instead of uploading it.
+
+    Lets the user point MediaForge at a huge file they placed on the Colab VM
+    (e.g. a multi-GB video on their mounted Google Drive) that can't go through
+    the browser upload. Returns the same {path,name,info} shape as /upload.
+    """
+    src = _resolve(path.strip())
+    if not src.is_file():
+        raise HTTPException(400, "Path is not a file")
+    if src.suffix.lower() not in _ALLOWED:
+        raise HTTPException(400, f"Unsupported file type: {src.suffix or 'unknown'}")
+    # Hand back a path the other routes can resolve: relative if it's under
+    # DATA_DIR, otherwise the absolute path (which _resolve also accepts).
+    try:
+        out = str(src.relative_to(config.DATA_DIR.resolve())).replace("\\", "/")
+    except ValueError:
+        out = str(src)
+    return {"path": out, "name": src.name, "info": _probe_info(src)}
 
 
 # --- video ops -------------------------------------------------------------
