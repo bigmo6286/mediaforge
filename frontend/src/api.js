@@ -61,11 +61,50 @@ export async function maybeDownscaleImage(
   return new File([blob], name, { type: "image/jpeg" });
 }
 
-export async function uploadFile(file) {
+// Colab's kernel proxy drops oversized request bodies, so a long video posted
+// in one shot fails with "Failed to fetch". Files above this size are sliced
+// and uploaded chunk-by-chunk instead. 5 MB stays well under the proxy limit.
+const CHUNK_SIZE = 5 * 1024 * 1024;
+
+// Upload a file, reporting progress via onProgress(fraction 0..1). Small files
+// go in a single request; large ones (e.g. videos) are chunked so no single
+// request is big enough for the Colab proxy to drop.
+export async function uploadFile(file, onProgress) {
+  if (file.size <= CHUNK_SIZE) {
+    onProgress && onProgress(0);
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch("/api/upload", { method: "POST", body: fd });
+    const res = await parseJson(r, "upload");
+    onProgress && onProgress(1);
+    return res;
+  }
+  return uploadFileChunked(file, onProgress);
+}
+
+async function uploadFileChunked(file, onProgress) {
+  const uploadId = (
+    crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  ).replace(/-/g, "");
+  const total = Math.ceil(file.size / CHUNK_SIZE);
+  for (let index = 0; index < total; index++) {
+    const start = index * CHUNK_SIZE;
+    const fd = new FormData();
+    fd.append("upload_id", uploadId);
+    fd.append("index", String(index));
+    fd.append("chunk", file.slice(start, start + CHUNK_SIZE), "chunk");
+    const r = await fetch("/api/upload/chunk", { method: "POST", body: fd });
+    await parseJson(r, "upload");
+    // Reserve the last slice of the bar for the finish/probe step.
+    onProgress && onProgress((index + 1) / (total + 1));
+  }
   const fd = new FormData();
-  fd.append("file", file);
-  const r = await fetch("/api/upload", { method: "POST", body: fd });
-  return parseJson(r, "upload");
+  fd.append("upload_id", uploadId);
+  fd.append("filename", file.name);
+  const r = await fetch("/api/upload/finish", { method: "POST", body: fd });
+  const res = await parseJson(r, "upload");
+  onProgress && onProgress(1);
+  return res;
 }
 
 export async function postForm(url, fields) {

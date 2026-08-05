@@ -39,13 +39,61 @@ def _resolve(rel_or_name: str) -> Path:
     return p
 
 
+def _probe_info(dest: Path) -> dict:
+    return ffmpeg_tools.probe(dest) if dest.suffix.lower() not in (
+        ".png", ".jpg", ".jpeg", ".webp") else {}
+
+
 @router.post("/upload")
 async def upload(file: UploadFile = File(...)) -> dict:
     dest = _save_upload(file)
     rel = str(dest.relative_to(config.DATA_DIR)).replace("\\", "/")
-    info = ffmpeg_tools.probe(dest) if dest.suffix.lower() not in (
-        ".png", ".jpg", ".jpeg", ".webp") else {}
-    return {"path": rel, "name": dest.name, "info": info}
+    return {"path": rel, "name": dest.name, "info": _probe_info(dest)}
+
+
+# --- chunked upload --------------------------------------------------------
+# A long video posted as one big multipart body gets dropped by Colab's kernel
+# proxy ("Failed to fetch"). The browser instead slices the file into small
+# chunks, uploads them sequentially here, then calls /upload/finish to assemble.
+_CHUNK_DIR = config.UPLOAD_DIR / ".chunks"
+
+
+def _safe_upload_id(upload_id: str) -> str:
+    uid = "".join(c for c in upload_id.lower() if c in "0123456789abcdef")
+    if not 8 <= len(uid) <= 64:
+        raise HTTPException(400, "Bad upload id")
+    return uid
+
+
+@router.post("/upload/chunk")
+async def upload_chunk(upload_id: str = Form(...), index: int = Form(...),
+                       chunk: UploadFile = File(...)) -> dict:
+    uid = _safe_upload_id(upload_id)
+    _CHUNK_DIR.mkdir(parents=True, exist_ok=True)
+    part = _CHUNK_DIR / f"{uid}.part"
+    # Chunks arrive in order (the browser uploads them sequentially); index 0
+    # truncates to start fresh, later indices append.
+    with part.open("wb" if index == 0 else "ab") as f:
+        shutil.copyfileobj(chunk.file, f)
+    return {"ok": True, "index": index}
+
+
+@router.post("/upload/finish")
+async def upload_finish(upload_id: str = Form(...),
+                        filename: str = Form(...)) -> dict:
+    uid = _safe_upload_id(upload_id)
+    part = _CHUNK_DIR / f"{uid}.part"
+    if not part.exists():
+        raise HTTPException(404, "No uploaded chunks found")
+    suffix = Path(filename or "").suffix.lower()
+    if suffix not in _ALLOWED:
+        part.unlink(missing_ok=True)
+        raise HTTPException(400, f"Unsupported file type: {suffix or 'unknown'}")
+    name = f"{int(time.time())}_{uuid.uuid4().hex[:8]}{suffix}"
+    dest = config.UPLOAD_DIR / name
+    part.replace(dest)  # atomic rename within the same filesystem
+    rel = str(dest.relative_to(config.DATA_DIR)).replace("\\", "/")
+    return {"path": rel, "name": dest.name, "info": _probe_info(dest)}
 
 
 # --- video ops -------------------------------------------------------------

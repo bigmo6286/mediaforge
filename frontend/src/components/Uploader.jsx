@@ -6,16 +6,18 @@ import { uploadFile, maybeDownscaleImage } from "../api.js";
 export default function Uploader({ accept, label, onUploaded }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState(0);
   const [name, setName] = useState(null);
   const [err, setErr] = useState(null);
 
   const handle = async (file) => {
     if (!file) return;
     setBusy(true);
+    setPct(0);
     setErr(null);
     try {
       const prepared = await maybeDownscaleImage(file);
-      const res = await uploadFile(prepared);
+      const res = await uploadFile(prepared, setPct);
       setName(res.name);
       onUploaded(res);
     } catch (e) {
@@ -43,7 +45,7 @@ export default function Uploader({ accept, label, onUploaded }) {
         onChange={(e) => handle(e.target.files[0])}
       />
       {busy ? (
-        <span>Uploading…</span>
+        <span>Uploading… {Math.round(pct * 100)}%</span>
       ) : name ? (
         <span className="ok">✓ {name}</span>
       ) : (
