@@ -6,14 +6,17 @@ import { pollJob } from "../api.js";
 export default function useJobRunner() {
   const [state, setState] = useState({ status: "idle", progress: 0, message: "" });
 
-  const run = async (submitPromise) => {
+  // onTick(job) is called with the full job object on every poll — use it to
+  // read `job.partial` and surface results as they stream in.
+  const run = async (submitPromise, onTick) => {
     setState({ status: "submitting", progress: 0, message: "submitting…" });
     try {
       const { job_id } = await submitPromise;
       if (!job_id) throw new Error("no job id returned");
-      const job = await pollJob(job_id, (j) =>
-        setState({ status: j.status, progress: j.progress, message: j.message })
-      );
+      const job = await pollJob(job_id, (j) => {
+        setState({ status: j.status, progress: j.progress, message: j.message });
+        onTick && onTick(j);
+      });
       setState({ status: "done", progress: 1, message: "complete" });
       return job.result;
     } catch (e) {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { postForm, importServerFile } from "../api.js";
 import Uploader from "../components/Uploader.jsx";
 import ProgressBar from "../components/ProgressBar.jsx";
@@ -39,8 +39,24 @@ export default function ShortsTab({ providers, onResult }) {
   const [vertical, setVertical] = useState(true);
   const [captions, setCaptions] = useState(true);
   const [maxShorts, setMaxShorts] = useState(0);
+  const [viral, setViral] = useState(false);
   const [summary, setSummary] = useState(null);
   const { state, run, busy } = useJobRunner();
+  // Tracks which shorts we've already pushed to the Results panel, so streaming
+  // them live (as each renders) and the final result don't create duplicates.
+  const seen = useRef(new Set());
+
+  const emitShorts = (shorts) => {
+    (shorts || []).forEach((s) => {
+      if (!s?.output || seen.current.has(s.output)) return;
+      seen.current.add(s.output);
+      const tag = s.score != null ? `🔥 ${s.score} · ` : "";
+      onResult({
+        title: `${tag}${s.duration}s · ${s.language} — ${(s.text || "").slice(0, 40)}…`,
+        output: s.output,
+      });
+    });
+  };
 
   const useServerFile = async () => {
     const p = serverPath.trim();
@@ -60,6 +76,7 @@ export default function ShortsTab({ providers, onResult }) {
   const submit = async () => {
     if (!video) return;
     setSummary(null);
+    seen.current = new Set();
     const opt = LANGUAGES.find((l) => l[0] === langValue) || LANGUAGES[0];
     const [, , engine, code] = opt;
     try {
@@ -72,16 +89,14 @@ export default function ShortsTab({ providers, onResult }) {
           language: code,
           engine,
           max_shorts: maxShorts,
-        })
+          viral,
+        }),
+        // Stream each short into the Results panel the moment it's rendered, so
+        // a runtime timeout can't cost you the clips already finished.
+        (job) => emitShorts(job.partial?.shorts)
       );
-      const shorts = res?.shorts || [];
-      shorts.forEach((s, i) =>
-        onResult({
-          title: `Short ${i + 1} · ${s.duration}s · ${s.language} — ${(s.text || "").slice(0, 40)}…`,
-          output: s.output,
-        })
-      );
-      setSummary({ count: shorts.length, language: res?.language });
+      emitShorts(res?.shorts);
+      setSummary({ count: (res?.shorts || []).length, language: res?.language });
     } catch (e) {
       /* surfaced in progress bar */
     }
@@ -176,11 +191,27 @@ export default function ShortsTab({ providers, onResult }) {
           <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} />
           Burn in captions
         </label>
+        <label className="check">
+          <input type="checkbox" checked={viral} onChange={(e) => setViral(e.target.checked)} />
+          🔥 Pick the most viral moments
+        </label>
       </div>
+      <p className="hint">
+        With <b>viral moments</b> on, MediaForge scores every candidate clip by
+        energy, delivery and pace and keeps only the strongest — the number set
+        by <b>Max shorts</b> (or the top 10 if that's 0). Each result shows its
+        score. Off = sequential clips covering the whole video.
+      </p>
 
       <button className="primary" disabled={busy || !video} onClick={submit}>
         {busy ? "Making shorts…" : "✂️ Make shorts"}
       </button>
+
+      <p className="hint">
+        Clips appear in Results as each one finishes — so if the Colab runtime
+        times out mid-run, everything already rendered is kept (and saved to
+        Google Drive if you ran notebook cell 3).
+      </p>
 
       {summary && (
         <p className="hint">

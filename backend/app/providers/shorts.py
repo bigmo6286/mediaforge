@@ -18,6 +18,7 @@ the rest of the pipeline.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -195,6 +196,52 @@ def _segment(segs: list[dict], target: float, max_len: float) -> list[tuple]:
     return windows
 
 
+# --- Viral moment detection -------------------------------------------------
+# Score each candidate window for how likely it is to be a "highlight", then
+# keep the top ones. The signals are deliberately ACOUSTIC + rate-based rather
+# than English keyword lists, so this works across languages (Yoruba, Igbo,
+# Pidgin, Hausa, …) where a word-based approach would fail:
+#   - loudness (RMS energy)      -> emphasis, excitement, crowd reaction
+#   - peak energy                -> shouts, laughter, punchlines
+#   - energy dynamics (std)      -> expressive delivery vs monotone
+#   - speech rate (words/sec)    -> punchy, dense moments
+#   - '!'/'?' count              -> exclamations/questions (Whisper only; MMS
+#                                   emits no punctuation, so this just stays 0)
+def _score_windows(windows: list[tuple], audio, sr: int) -> list[float]:
+    import numpy as np
+
+    feats = []
+    for (s, e, wsegs) in windows:
+        a = audio[int(s * sr): int(e * sr)]
+        if a.size:
+            rms = float(np.sqrt(np.mean(a * a)))
+            peak = float(np.max(np.abs(a)))
+            fr = max(1, int(0.1 * sr))            # 100 ms frames
+            trimmed = a[: (a.size // fr) * fr]
+            if trimmed.size:
+                frames = trimmed.reshape(-1, fr)
+                dyn = float(np.std(np.sqrt(np.mean(frames * frames, axis=1))))
+            else:
+                dyn = 0.0
+        else:
+            rms = peak = dyn = 0.0
+        dur = max(0.1, e - s)
+        nwords = sum(len(x["words"]) or len(x["text"].split()) for x in wsegs)
+        text = " ".join(x["text"] for x in wsegs)
+        feats.append({"rms": rms, "peak": peak, "dyn": dyn,
+                      "wps": nwords / dur, "excite": text.count("!") + text.count("?")})
+
+    def norm(key: str) -> list[float]:
+        vals = [f[key] for f in feats]
+        lo, hi = min(vals), max(vals)
+        rng = (hi - lo) or 1.0
+        return [(v - lo) / rng for v in vals]
+
+    nrms, npeak, ndyn, nwps, nexc = (norm(k) for k in ("rms", "peak", "dyn", "wps", "excite"))
+    return [0.34 * nrms[i] + 0.20 * npeak[i] + 0.22 * ndyn[i]
+            + 0.16 * nwps[i] + 0.08 * nexc[i] for i in range(len(feats))]
+
+
 # --- Styled ASS captions ----------------------------------------------------
 def _ass_time(t: float) -> str:
     t = max(0.0, t)
@@ -309,23 +356,51 @@ def make_shorts(video_path: Path, params: dict, progress: JobProgress) -> dict:
             "recognised). Try setting the language explicitly.")
 
     windows = _segment(segs, target, max_len)
-    if max_shorts:
+
+    # Viral moment detection: rank candidate windows and keep the best ones,
+    # then put them back in time order so the clips still read chronologically.
+    viral = bool(params.get("viral", False))
+    scores: list[float] | None = None
+    if viral and len(windows) > 1:
+        progress.update(0.18, "scoring moments for virality")
+        audio_np, sr = _read_wav16k(audio)
+        all_scores = _score_windows(windows, audio_np, sr)
+        keep = max_shorts if max_shorts else min(10, len(windows))
+        chosen = sorted(sorted(range(len(windows)),
+                               key=lambda i: all_scores[i], reverse=True)[:keep])
+        windows = [windows[i] for i in chosen]
+        scores = [all_scores[i] for i in chosen]
+    elif max_shorts:
         windows = windows[:max_shorts]
 
+    # Stream each short as it finishes (set_partial) and mirror the running list
+    # to a manifest on disk. If the runtime is killed mid-job, every clip
+    # rendered so far survives on disk (on Drive when cell 3 is used) and the
+    # manifest records what each one is — nothing completed is lost.
+    manifest = config.OUTPUT_DIR / f"shorts_{progress.id}.json"
     results = []
     n = len(windows) or 1
     for i, (s, e, wsegs) in enumerate(windows):
         progress.update(0.2 + 0.75 * (i / n), f"rendering short {i + 1}/{len(windows)}")
         ass = _write_ass(wsegs, s) if captions else None
         out = _render_short(video_path, s, e, ass, vertical)
-        results.append({
+        item = {
             "output": rel(out),
             "start": round(s, 2),
             "end": round(e, 2),
             "duration": round(e - s, 2),
             "language": detected,
             "text": " ".join(x["text"] for x in wsegs),
-        })
+            "score": round(scores[i] * 100) if scores else None,
+        }
+        results.append(item)
+        payload = {"shorts": list(results), "language": detected, "count": len(results)}
+        progress.set_partial(payload)
+        try:
+            manifest.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                                encoding="utf-8")
+        except OSError:
+            pass  # a manifest write failure must never abort the render
 
     progress.update(1.0, f"done — {len(results)} shorts ({detected})")
     return {"shorts": results, "language": detected, "count": len(results)}

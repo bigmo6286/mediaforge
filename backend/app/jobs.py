@@ -28,6 +28,9 @@ class Job:
     progress: float = 0.0  # 0..1
     message: str = ""
     result: Optional[dict] = None  # e.g. {"output": "outputs/xyz.mp4"}
+    # Results streamed while the job is still running, so the UI can show work
+    # as it completes and nothing is lost if the runtime dies mid-job.
+    partial: Optional[dict] = None
     error: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -93,6 +96,10 @@ class JobProgress:
         self._mgr = mgr
         self._job = job
 
+    @property
+    def id(self) -> str:
+        return self._job.id
+
     def update(self, progress: Optional[float] = None, message: Optional[str] = None) -> None:
         updates: dict[str, Any] = {}
         if progress is not None:
@@ -101,6 +108,10 @@ class JobProgress:
             updates["message"] = message
         if updates:
             self._mgr._touch(self._job, **updates)
+
+    def set_partial(self, data: dict) -> None:
+        """Publish in-progress results so pollers see work as it completes."""
+        self._mgr._touch(self._job, partial=data)
 
 
 # Singleton used by the routes.
