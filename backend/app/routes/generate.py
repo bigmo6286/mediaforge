@@ -101,12 +101,13 @@ async def shorts(
     engine: str = Form("whisper"),       # "whisper" or "mms"
     max_shorts: int = Form(0),           # 0 = as many as the video yields
     viral: bool = Form(False),           # pick the highest-scoring moments
+    picker: str = Form(""),              # "claude" | "acoustic" | "" = auto
 ) -> dict:
     src = _resolve(path)
     params = {"clip_seconds": clip_seconds, "max_seconds": max_seconds,
               "vertical": vertical, "captions": captions,
               "language": language, "engine": engine, "max_shorts": max_shorts,
-              "viral": viral}
+              "viral": viral, "picker": picker}
     job = manager.submit("generate.shorts",
                          lambda pr: shorts_maker.make_shorts(src, params, pr))
     return {"job_id": job.id}

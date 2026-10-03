@@ -40,7 +40,12 @@ export default function ShortsTab({ providers, onResult }) {
   const [captions, setCaptions] = useState(true);
   const [maxShorts, setMaxShorts] = useState(0);
   const [viral, setViral] = useState(false);
+  // "" = auto: Claude when a key is saved, otherwise acoustic scoring.
+  const [picker, setPicker] = useState("");
   const [summary, setSummary] = useState(null);
+  const claudeReady = !!providers?.claude?.configured;
+  const claudeModel = providers?.claude?.model || "Claude";
+  const effectivePicker = picker || (claudeReady ? "claude" : "acoustic");
   const { state, run, busy } = useJobRunner();
   // Tracks which shorts we've already pushed to the Results panel, so streaming
   // them live (as each renders) and the final result don't create duplicates.
@@ -51,10 +56,10 @@ export default function ShortsTab({ providers, onResult }) {
       if (!s?.output || seen.current.has(s.output)) return;
       seen.current.add(s.output);
       const tag = s.score != null ? `🔥 ${s.score} · ` : "";
-      onResult({
-        title: `${tag}${s.duration}s · ${s.language} — ${(s.text || "").slice(0, 40)}…`,
-        output: s.output,
-      });
+      const label = s.title
+        ? `${s.duration}s · ${s.title}`
+        : `${s.duration}s · ${s.language} — ${(s.text || "").slice(0, 40)}…`;
+      onResult({ title: `${tag}${label}`, output: s.output });
     });
   };
 
@@ -90,13 +95,19 @@ export default function ShortsTab({ providers, onResult }) {
           engine,
           max_shorts: maxShorts,
           viral,
+          picker: viral ? effectivePicker : "",
         }),
         // Stream each short into the Results panel the moment it's rendered, so
         // a runtime timeout can't cost you the clips already finished.
         (job) => emitShorts(job.partial?.shorts)
       );
       emitShorts(res?.shorts);
-      setSummary({ count: (res?.shorts || []).length, language: res?.language });
+      setSummary({
+        count: (res?.shorts || []).length,
+        language: res?.language,
+        picker: res?.picker,
+        pickerError: res?.picker_error,
+      });
     } catch (e) {
       /* surfaced in progress bar */
     }
@@ -196,11 +207,49 @@ export default function ShortsTab({ providers, onResult }) {
           🔥 Pick the most viral moments
         </label>
       </div>
+      {viral && (
+        <div className="field" style={{ marginTop: 10 }}>
+          <label>Pick moments with</label>
+          <div className="seg">
+            {[
+              ["claude", "Claude (reads the transcript)"],
+              ["acoustic", "Acoustic (energy & pace)"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                className={effectivePicker === value ? "seg-btn active" : "seg-btn"}
+                onClick={() => setPicker(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {effectivePicker === "claude" ? (
+            <p className="hint" style={{ marginTop: 0 }}>
+              <b>{claudeModel}</b> reads the whole transcript and picks the clips
+              with the strongest hook and payoff, cutting at sentence boundaries, and
+              writes a title for each. Delivery energy is passed along as a hint.
+              {!claudeReady && (
+                <>
+                  {" "}
+                  <b>No Anthropic key is saved</b> — add one in ⚙ Settings, or the
+                  run will fall back to acoustic scoring.
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="hint" style={{ marginTop: 0 }}>
+              Scores every candidate clip by energy, delivery and pace, with no
+              API key needed. Works in any language but can't judge what is
+              being said.
+            </p>
+          )}
+        </div>
+      )}
       <p className="hint">
-        With <b>viral moments</b> on, MediaForge scores every candidate clip by
-        energy, delivery and pace and keeps only the strongest — the number set
-        by <b>Max shorts</b> (or the top 10 if that's 0). Each result shows its
-        score. Off = sequential clips covering the whole video.
+        With <b>viral moments</b> on, only the strongest clips are kept — the
+        number set by <b>Max shorts</b> (or the top 10 if that's 0). Each result
+        shows its score. Off = sequential clips covering the whole video.
       </p>
 
       <button className="primary" disabled={busy || !video} onClick={submit}>
@@ -216,8 +265,20 @@ export default function ShortsTab({ providers, onResult }) {
       {summary && (
         <p className="hint">
           Made <b>{summary.count}</b> short{summary.count === 1 ? "" : "s"} · detected
-          language: <b>{summary.language}</b>. They're in the Results panel →
+          language: <b>{summary.language}</b>
+          {summary.picker && (
+            <>
+              {" "}· picked by <b>{summary.picker}</b>
+            </>
+          )}
+          . They're in the Results panel →
         </p>
+      )}
+      {summary?.pickerError && (
+        <div className="err">
+          Claude couldn't pick the moments ({summary.pickerError}) — acoustic
+          scoring was used instead.
+        </div>
       )}
       <ProgressBar state={state} />
     </div>

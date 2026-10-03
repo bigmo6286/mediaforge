@@ -24,6 +24,7 @@ from pathlib import Path
 
 from .. import config, ffmpeg_tools
 from ..jobs import JobProgress
+from . import claude
 from ._hosted import ProviderError, out_path, rel
 
 
@@ -197,10 +198,27 @@ def _segment(segs: list[dict], target: float, max_len: float) -> list[tuple]:
 
 
 # --- Viral moment detection -------------------------------------------------
-# Score each candidate window for how likely it is to be a "highlight", then
-# keep the top ones. The signals are deliberately ACOUSTIC + rate-based rather
-# than English keyword lists, so this works across languages (Yoruba, Igbo,
-# Pidgin, Hausa, …) where a word-based approach would fail:
+# Two pickers. "claude" sends the transcript to Claude, which chooses clips by
+# reading them (hook, self-contained payoff, ending line) and returns a title
+# per clip; it also gets the per-segment energy below as a hint. "acoustic" is
+# the offline fallback: it scores fixed windows on sound alone.
+def _segment_energy(segs: list[dict], audio, sr: int) -> list[float]:
+    """Loudness (RMS) of each transcript segment, normalised to 0-100."""
+    import numpy as np
+
+    vals = []
+    for s in segs:
+        a = audio[int(s["start"] * sr): int(s["end"] * sr)]
+        vals.append(float(np.sqrt(np.mean(a * a))) if a.size else 0.0)
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1.0
+    return [100.0 * (v - lo) / rng for v in vals]
+
+
+# Acoustic picker: score each candidate window for how likely it is to be a
+# "highlight", then keep the top ones. The signals are deliberately ACOUSTIC +
+# rate-based rather than English keyword lists, so this works across languages
+# (Yoruba, Igbo, Pidgin, Hausa, …) where a word-based approach would fail:
 #   - loudness (RMS energy)      -> emphasis, excitement, crowd reaction
 #   - peak energy                -> shouts, laughter, punchlines
 #   - energy dynamics (std)      -> expressive delivery vs monotone
@@ -304,11 +322,6 @@ def _write_ass(wsegs: list[dict], offset: float) -> Path:
     return out
 
 
-def _filter_path(p: Path) -> str:
-    # Escape the path for use inside an ffmpeg filtergraph value.
-    return str(p).replace("\\", "/").replace(":", r"\:")
-
-
 def _render_short(video: Path, start: float, end: float, ass_path: Path | None,
                   vertical: bool) -> Path:
     out = out_path(".mp4", prefix="short")
@@ -317,15 +330,22 @@ def _render_short(video: Path, start: float, end: float, ass_path: Path | None,
         # Fill a 1080x1920 canvas and centre-crop -> 9:16 vertical.
         vf.append("scale=1080:1920:force_original_aspect_ratio=increase")
         vf.append("crop=1080:1920")
+    # The ass filter takes its path inside a filtergraph string, where ':' is
+    # an option separator — so a Windows "C:/..." path breaks it, and the
+    # escaping rules differ per platform. Sidestep that entirely: run ffmpeg
+    # from the caption file's own folder and reference it by bare name.
+    cwd = None
     if ass_path is not None:
-        vf.append(f"ass={_filter_path(ass_path)}")
-    cmd = [_ffmpeg(), "-y", "-ss", f"{start:.3f}", "-i", str(video),
+        vf.append(f"ass={ass_path.name}")
+        cwd = str(ass_path.parent)
+    cmd = [_ffmpeg(), "-y", "-ss", f"{start:.3f}", "-i", str(video.resolve()),
            "-t", f"{max(0.1, end - start):.3f}"]
     if vf:
         cmd += ["-vf", ",".join(vf)]
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+            str(out.resolve())]
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     if proc.returncode != 0 or not out.exists():
         raise ProviderError(f"ffmpeg failed rendering short:\n{(proc.stderr or '')[-400:]}")
     return out
@@ -357,20 +377,46 @@ def make_shorts(video_path: Path, params: dict, progress: JobProgress) -> dict:
 
     windows = _segment(segs, target, max_len)
 
-    # Viral moment detection: rank candidate windows and keep the best ones,
-    # then put them back in time order so the clips still read chronologically.
+    # Viral moment detection: pick the best moments (Claude reads the
+    # transcript; acoustic scores fixed windows), in time order so the clips
+    # still read chronologically.
     viral = bool(params.get("viral", False))
+    picker = str(params.get("picker", "") or "").lower()
+    if viral and picker not in ("claude", "acoustic"):
+        picker = "claude" if config.ANTHROPIC_API_KEY else "acoustic"
+    picker_error: str | None = None
     scores: list[float] | None = None
-    if viral and len(windows) > 1:
+    extras: list[dict] | None = None   # per-clip {"title", "why"} from Claude
+    keep = max_shorts if max_shorts else min(10, len(windows))
+
+    if viral and picker == "claude" and len(segs) > 1:
+        try:
+            audio_np, sr = _read_wav16k(audio)
+            picks = claude.pick_moments(
+                segs, target=target, max_len=max_len, keep=keep,
+                language=detected, energy=_segment_energy(segs, audio_np, sr),
+                progress=progress)
+            if not picks:
+                raise ProviderError("Claude found no clips that fit the length limits.")
+            windows = [(segs[p["start_segment"]]["start"], segs[p["end_segment"]]["end"],
+                        segs[p["start_segment"]:p["end_segment"] + 1]) for p in picks]
+            scores = [p["score"] / 100.0 for p in picks]
+            extras = [{"title": p["title"], "why": p["why"]} for p in picks]
+        except ProviderError as exc:
+            # Transcription is the expensive step; never throw it away because
+            # the picker failed. Fall back to acoustic scoring and say so.
+            picker, picker_error = "acoustic", str(exc)
+            progress.update(0.18, "Claude picker failed; falling back to acoustic scoring")
+
+    if viral and picker == "acoustic" and len(windows) > 1:
         progress.update(0.18, "scoring moments for virality")
         audio_np, sr = _read_wav16k(audio)
         all_scores = _score_windows(windows, audio_np, sr)
-        keep = max_shorts if max_shorts else min(10, len(windows))
         chosen = sorted(sorted(range(len(windows)),
                                key=lambda i: all_scores[i], reverse=True)[:keep])
         windows = [windows[i] for i in chosen]
         scores = [all_scores[i] for i in chosen]
-    elif max_shorts:
+    elif not viral and max_shorts:
         windows = windows[:max_shorts]
 
     # Stream each short as it finishes (set_partial) and mirror the running list
@@ -393,8 +439,11 @@ def make_shorts(video_path: Path, params: dict, progress: JobProgress) -> dict:
             "text": " ".join(x["text"] for x in wsegs),
             "score": round(scores[i] * 100) if scores else None,
         }
+        if extras:
+            item.update(extras[i])
         results.append(item)
-        payload = {"shorts": list(results), "language": detected, "count": len(results)}
+        payload = {"shorts": list(results), "language": detected, "count": len(results),
+                   "picker": picker if viral else None, "picker_error": picker_error}
         progress.set_partial(payload)
         try:
             manifest.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
@@ -403,4 +452,5 @@ def make_shorts(video_path: Path, params: dict, progress: JobProgress) -> dict:
             pass  # a manifest write failure must never abort the render
 
     progress.update(1.0, f"done — {len(results)} shorts ({detected})")
-    return {"shorts": results, "language": detected, "count": len(results)}
+    return {"shorts": results, "language": detected, "count": len(results),
+            "picker": picker if viral else None, "picker_error": picker_error}

@@ -25,7 +25,7 @@ One server on **http://127.0.0.1:8000** serves both the React UI and the API:
 | Tab | Feature | Runs on |
 |-----|---------|---------|
 | 🎤 **Talking Avatar** | 1 photo + voice → lip-synced presenter (SadTalker/Hallo/Wan2.2-S2V). Voice from a typed **script** (TTS) or an uploaded recording. | GPU (hosted or local); TTS can run locally on CPU via Piper |
-| ✂️ **Shorts** | Upload a long video → **vertical 9:16 shorts with burned-in captions**. Speech is transcribed on the GPU — **Whisper** (auto-detect, many African languages) or **Meta MMS** (1000+ languages incl. **Igbo** & **Nigerian Pidgin**) — and the transcript is split into clips at sentence boundaries. Built for **Nigerian & African-language** content. Clip length, language/engine, 9:16 reframe and captions are all toggleable. | GPU (local/Colab); CPU works but slow |
+| ✂️ **Shorts** | Upload a long video → **vertical 9:16 shorts with burned-in captions**. Speech is transcribed on the GPU — **Whisper** (auto-detect, many African languages) or **Meta MMS** (1000+ languages incl. **Igbo** & **Nigerian Pidgin**) — and the transcript is split into clips at sentence boundaries. Built for **Nigerian & African-language** content. **Viral moments** can be picked by **Claude** (reads the transcript, titles each clip) or by acoustic scoring. Clip length, language/engine, 9:16 reframe and captions are all toggleable. | GPU (local/Colab); CPU works but slow · Claude picking: API key |
 | ✨ **Motion** | Text→Video / Image→Video with **LTX-Video** (free-GPU friendly) or **Wan**. A duration slider goes to 30s — clips longer than one model window are built by **auto-chaining** segments (last frame seeds the next) and trimmed to length. | GPU (hosted or local) |
 | 🎭 **Face & Wardrobe** | **Face swap** on a **photo or video** (every frame; InsightFace), an optional **GFPGAN face-restore pass** to sharpen results, standalone **Restore faces** for any blurry photo/video, and **Dress change** (virtual try-on, IDM-VTON) | face swap/restore: CPU/GPU · try-on: GPU (hosted) |
 | 🎬 **Video Edit** | Trim, crop, resize, speed, → GIF, convert, extract frames, extract audio | **CPU, local** |
@@ -175,6 +175,14 @@ WAN_PROVIDER=replicate
 REPLICATE_API_TOKEN=your_token # https://replicate.com/account/api-tokens
 ```
 
+**Claude (optional, Shorts only)** — not a GPU backend. It reads the Shorts
+transcript and picks the best moments; see
+[Viral moments](#viral-moments--claude-or-acoustic) below.
+```
+ANTHROPIC_API_KEY=your_key     # https://console.anthropic.com/settings/keys
+# CLAUDE_MODEL=claude-opus-5-5 # default
+```
+
 **Local GPU** (a machine with CUDA) — *just works, no keys*
 ```bash
 ./setup_gpu.sh     # macOS / Linux: installs base + torch/diffusers, downloads voices
@@ -247,7 +255,29 @@ SHORTS_LANGUAGE=                # force a Whisper language code, "" = auto-detec
 
 Colab installs `faster-whisper` for you (cell 2); MMS reuses the `transformers`
 stack that's already installed. For a local (non-Colab) run: `pip install
-faster-whisper` (and MMS works via the existing `transformers`).
+faster-whisper "av<16"` (faster-whisper 1.2 does not work with PyAV 16+; MMS
+works via the existing `transformers`).
+
+### Viral moments — Claude or acoustic
+
+With **🔥 Pick the most viral moments** on, only the strongest clips are kept
+(the number set by *Max shorts*, or the top 10). Two pickers:
+
+- **Claude** (default when an Anthropic key is saved) — the whole transcript,
+  with timestamps and a per-sentence delivery-energy hint, goes to Claude in
+  one API call. It chooses clips by reading them: a hook in the first line, a
+  self-contained payoff, an ending on a complete sentence. Clips are cut at
+  sentence boundaries, never exceed the length cap, and each comes back with a
+  **score** and an English **title** (shown in Results). Works on Pidgin,
+  Yoruba, Igbo and other transcripts, including noisy ones. Cost is a few cents
+  per long video; nothing is rendered by Claude, ffmpeg still does the cutting.
+- **Acoustic** (no key needed) — scores fixed windows by loudness, peak energy,
+  dynamics and speech rate. Language-agnostic but cannot judge what is said.
+
+Add the key in **⚙ Settings → Anthropic API key**, or set `ANTHROPIC_API_KEY`
+(and optionally `CLAUDE_MODEL`, default `claude-opus-5-5`) in `backend/.env`.
+If the Claude call fails mid-job (bad key, rate limit, outage), the run does
+not lose its transcription: it falls back to acoustic scoring and reports why.
 
 ### Optional local extras
 ```

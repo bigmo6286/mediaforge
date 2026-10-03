@@ -8,6 +8,10 @@ imageio-ffmpeg>=0.5.1      # bundles an ffmpeg binary (no sudo needed)
 # Local image editing — optional but light
 Pillow>=10.0
 
+# Claude (Anthropic) — reads Shorts transcripts to pick viral moments. Light,
+# pure Python; only used when ANTHROPIC_API_KEY is set.
+anthropic>=1.0
+
 # NOTE: local text-to-speech (Piper) is installed SEPARATELY as a best-effort
 # step by run.sh / run.ps1 (see requirements-voice.txt). It's kept out of the
 # core list because its phonemizer wheel can fail to build on some Windows

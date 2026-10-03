@@ -228,6 +228,13 @@ TTS_PROVIDER = os.environ.get("TTS_PROVIDER", "piper" if _HAS_PIPER else WAN_PRO
 FAL_TTS_MODEL = os.environ.get("FAL_TTS_MODEL", "fal-ai/kokoro")
 REPLICATE_TTS_MODEL = os.environ.get("REPLICATE_TTS_MODEL", "jaaari/kokoro-82m")
 
+# --- Claude (Anthropic) — judgment over text, not rendering -----------------
+# Used by the Shorts maker to read the transcript and pick the moments most
+# likely to go viral (titles included). Rendering still happens on ffmpeg / the
+# GPU providers. Without a key, Shorts falls back to acoustic scoring.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
+
 # --- Server ----------------------------------------------------------------
 HOST = os.environ.get("MEDIAFORGE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("MEDIAFORGE_PORT", "8000"))
@@ -279,6 +286,7 @@ def provider_status() -> dict:
                   "fal": FAL_TRYON_MODEL, "replicate": REPLICATE_TRYON_MODEL},
         "restore": {"provider": RESTORE_PROVIDER,
                     "fal": FAL_RESTORE_MODEL, "replicate": REPLICATE_RESTORE_MODEL},
+        "claude": {"configured": bool(ANTHROPIC_API_KEY), "model": CLAUDE_MODEL},
     }
 
 
@@ -300,12 +308,21 @@ SECRET_FIELDS = [
                  "Pay-per-render. Create a token in your account settings."),
         "link": "https://replicate.com/account/api-tokens",
     },
+    {
+        "key": "ANTHROPIC_API_KEY",
+        "label": "Anthropic API key (Claude)",
+        "hint": ("Lets the Shorts maker read the transcript and pick the most "
+                 "viral moments, with a title for each clip. Pay-per-use; a "
+                 "20-minute video costs a few cents. Not needed for rendering."),
+        "link": "https://console.anthropic.com/settings/keys",
+    },
 ]
 
 # Every env var the settings endpoint is allowed to write.
-_EDITABLE = {"FAL_KEY", "REPLICATE_API_TOKEN", "WAN_PROVIDER", "MOTION_PROVIDER",
-             "AVATAR_PROVIDER", "FACESWAP_PROVIDER", "TRYON_PROVIDER",
-             "RESTORE_PROVIDER", "TTS_PROVIDER", "MOTION_MODEL"}
+_EDITABLE = {"FAL_KEY", "REPLICATE_API_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_MODEL",
+             "WAN_PROVIDER", "MOTION_PROVIDER", "AVATAR_PROVIDER",
+             "FACESWAP_PROVIDER", "TRYON_PROVIDER", "RESTORE_PROVIDER",
+             "TTS_PROVIDER", "MOTION_MODEL"}
 # Setting any of these to a value cascades to every generation provider.
 _PROVIDER_VARS = ("WAN_PROVIDER", "MOTION_PROVIDER", "AVATAR_PROVIDER",
                   "FACESWAP_PROVIDER", "TRYON_PROVIDER", "RESTORE_PROVIDER")
@@ -332,6 +349,8 @@ def current_settings() -> dict:
             "FAL_KEY": {"set": bool(FAL_KEY), "masked": _mask(FAL_KEY)},
             "REPLICATE_API_TOKEN": {"set": bool(REPLICATE_API_TOKEN),
                                     "masked": _mask(REPLICATE_API_TOKEN)},
+            "ANTHROPIC_API_KEY": {"set": bool(ANTHROPIC_API_KEY),
+                                  "masked": _mask(ANTHROPIC_API_KEY)},
         },
     }
 

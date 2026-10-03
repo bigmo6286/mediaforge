@@ -17,6 +17,7 @@ async def get_settings() -> dict:
 async def update_settings(
     FAL_KEY: str = Form(None),
     REPLICATE_API_TOKEN: str = Form(None),
+    ANTHROPIC_API_KEY: str = Form(None),
     provider: str = Form(None),  # "fal" | "replicate" — cascades to all features
 ) -> dict:
     updates: dict[str, str] = {}
@@ -25,6 +26,8 @@ async def update_settings(
         updates["FAL_KEY"] = FAL_KEY
     if REPLICATE_API_TOKEN:
         updates["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+    if ANTHROPIC_API_KEY:
+        updates["ANTHROPIC_API_KEY"] = ANTHROPIC_API_KEY
     if provider in ("fal", "replicate", "local"):
         for var in config._PROVIDER_VARS:
             updates[var] = provider
