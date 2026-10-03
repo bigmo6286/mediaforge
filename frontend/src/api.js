@@ -7,12 +7,21 @@
 async function parseJson(r, action) {
   const text = await r.text();
   let data = null;
+  let parseErr = null;
   if (text) {
     try {
       data = JSON.parse(text);
-    } catch {
-      /* non-JSON body (e.g. an HTML/plaintext error page) */
+    } catch (e) {
+      parseErr = e; // non-JSON body (e.g. an HTML/plaintext error page)
     }
+  }
+  if (r.ok && parseErr) {
+    // Show the start of the body: "<!DOCTYPE html>" or a proxy notice says far
+    // more than a bare JSON.parse error does.
+    throw new Error(
+      `${action}: the server returned something that isn't JSON ` +
+        `(HTTP ${r.status}, ${text.length} chars): ${JSON.stringify(text.slice(0, 160))}`
+    );
   }
   if (!r.ok) {
     const detail = data && data.detail;
@@ -122,17 +131,17 @@ export async function importServerFile(path) {
 
 export async function getJob(id) {
   const r = await fetch(`/api/jobs/${id}`);
-  return r.json();
+  return parseJson(r, "job status");
 }
 
 export async function getProviders() {
   const r = await fetch("/api/generate/providers");
-  return r.json();
+  return parseJson(r, "providers");
 }
 
 export async function getSettings() {
   const r = await fetch("/api/settings");
-  return r.json();
+  return parseJson(r, "settings");
 }
 
 export async function saveSettings(fields) {
