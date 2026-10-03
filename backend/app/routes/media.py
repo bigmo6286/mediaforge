@@ -131,6 +131,17 @@ async def import_file(path: str = Form(...)) -> dict:
 
 
 # --- video ops -------------------------------------------------------------
+# NOTE: registered before /video/{op} so the fixed path wins over the wildcard.
+@router.post("/video/concat")
+async def video_concat(paths: str = Form(...)) -> dict:
+    """paths = comma-separated relative paths."""
+    srcs = [_resolve(p.strip()) for p in paths.split(",") if p.strip()]
+    if len(srcs) < 2:
+        raise HTTPException(400, "Need at least two clips to concatenate")
+    job = manager.submit("video.concat", lambda pr: ffmpeg_tools.concat(srcs, pr))
+    return {"job_id": job.id}
+
+
 @router.post("/video/{op}")
 async def video_op(op: str, path: str = Form(...),
                    a: str = Form("0"), b: str = Form("0"),
@@ -152,16 +163,6 @@ async def video_op(op: str, path: str = Form(...),
     if op not in ops:
         raise HTTPException(404, f"Unknown video op: {op}")
     job = manager.submit(f"video.{op}", ops[op])
-    return {"job_id": job.id}
-
-
-@router.post("/video/concat")
-async def video_concat(paths: str = Form(...)) -> dict:
-    """paths = comma-separated relative paths."""
-    srcs = [_resolve(p.strip()) for p in paths.split(",") if p.strip()]
-    if len(srcs) < 2:
-        raise HTTPException(400, "Need at least two clips to concatenate")
-    job = manager.submit("video.concat", lambda pr: ffmpeg_tools.concat(srcs, pr))
     return {"job_id": job.id}
 
 
